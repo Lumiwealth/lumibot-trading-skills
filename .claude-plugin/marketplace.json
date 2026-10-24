@@ -1,0 +1,38 @@
+{
+  "name": "lumiwealth",
+  "description": "Free trading strategy skills from Lumiwealth, the makers of LumiBot.",
+  "owner": {
+    "name": "Lumiwealth",
+    "url": "https://github.com/Lumiwealth"
+  },
+  "plugins": [
+    {
+      "name": "lumibot-trading-skills",
+      "source": ".",
+      "description": "Trading strategy skills for Claude Code, Codex and Cursor, built on LumiBot. Backtest and trade stocks, options, crypto and futures with AI.",
+      "version": "1.0.0",
+      "category": "finance",
+      "tags": [
+        "trading",
+        "lumibot",
+        "backtesting",
+        "options",
+        "crypto",
+        "futures",
+        "ai-agents"
+      ],
+      "metadata": {
+        "skills": [
+          "fast-lumibot-strategies",
+          "lumibot-ai-agents",
+          "lumibot-api-reference",
+          "lumibot-indicators",
+          "lumibot-strategy-building",
+          "options-strategies",
+          "stock-etf-strategies",
+          "using-botspot-mcp"
+        ]
+      }
+    }
+  ]
+}
