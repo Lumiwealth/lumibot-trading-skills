@@ -1,5 +1,6 @@
 > PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
+- ``@agent_tool`` is the PRIMARY pattern for adding external data sources only when the user names a real provider/API, uploads reference code, or explicitly asks for a custom integration. Do not invent generic news APIs, placeholder URLs, or new API-key requirements.
 - Always write Google-style docstrings with an ``Args`` section for ``@agent_tool`` functions. The source code and docstring are auto-included in the tool description.
 - Built-in tools are ALWAYS included automatically, even when you pass custom ``tools`` or ``mcp_servers``.
 - System prompts should be 2-3 sentences describing the strategy intent only. LumiBot handles position sizing, DuckDB usage, and backtesting safety internally.

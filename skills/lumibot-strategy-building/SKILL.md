@@ -1,7 +1,7 @@
 ---
 name: lumibot-strategy-building
-title: Building LumiBot Strategies on BotSpot
-description: Use as the main direct-edit strategy-building skill for new BotSpot strategies and substantial strategy rewrites. Choose the decision owner first, preserving explicit architecture choices and the ordinary hourly/daily AI-owned default. It owns the build, plan, validation and final handoff. A fast Python/hybrid recommendation explains avoided AI round-trip latency and credit use. Load supported LumiBot API references only as needed.
+title: "Building LumiBot Strategies on BotSpot"
+description: "Use as the main direct-edit strategy-building skill for new BotSpot strategies and substantial strategy rewrites. Choose the decision owner first, preserving explicit architecture choices and the ordinary hourly/daily AI-owned default. It owns the build, plan, validation and final handoff. A fast Python/hybrid recommendation explains avoided AI round-trip latency and credit use. Load supported LumiBot API references only as needed."
 visibility: public
 license: MIT
 ---

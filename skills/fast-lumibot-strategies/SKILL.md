@@ -1,7 +1,7 @@
 ---
 name: fast-lumibot-strategies
-title: Fast and Responsive LumiBot Strategies
-description: Load when a LumiBot strategy is slow, scans many symbols or option contracts, needs fast order handling (cancel after N seconds, immediate hedge or pair legs, OTO/OCO/bracket), or when backtests take too long. Covers sleeptime choice, batched data calls, caching, self.indicators, chunked scanners, bounded quote batching and order state machines.
+title: "Fast and Responsive LumiBot Strategies"
+description: "Load when a LumiBot strategy is slow, scans many symbols or option contracts, needs fast order handling (cancel after N seconds, immediate hedge or pair legs, OTO/OCO/bracket), or when backtests take too long. Covers sleeptime choice, batched data calls, caching, self.indicators, chunked scanners, bounded quote batching and order state machines."
 visibility: public
 license: MIT
 ---

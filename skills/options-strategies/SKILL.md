@@ -1,7 +1,7 @@
 ---
 name: options-strategies
-title: Options Strategies in LumiBot
-description: Use as the focused mandatory skill for LumiBot options code fixes, options no-trade rescue, OptionsHelper usage, options chains, option market evaluation, expirations/expiries, strikes, legs, spreads, liquidity, and spread order helpers. Load this exact skill before editing options code; lumibot-api-reference alone is not enough for options fixes.
+title: "Options Strategies in LumiBot"
+description: "Use as the focused mandatory skill for LumiBot options code fixes, options no-trade rescue, OptionsHelper usage, options chains, option market evaluation, expirations/expiries, strikes, legs, spreads, liquidity, and spread order helpers. Load this exact skill before editing options code; lumibot-api-reference alone is not enough for options fixes."
 visibility: public
 license: MIT
 ---

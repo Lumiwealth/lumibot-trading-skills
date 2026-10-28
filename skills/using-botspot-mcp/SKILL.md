@@ -1,7 +1,7 @@
 ---
 name: using-botspot-mcp
-title: Using the BotSpot MCP well
-description: Load first in any session connected to the BotSpot MCP. Explains what BotSpot does, which tools to call in what order to build, backtest, compare, share and deploy a LumiBot trading strategy, how sign-in works, and the mistakes that waste time.
+title: "Using the BotSpot MCP well"
+description: "Load first in any session connected to the BotSpot MCP. Explains what BotSpot does, which tools to call in what order to build, backtest, compare, share and deploy a LumiBot trading strategy, how sign-in works, and the mistakes that waste time."
 visibility: public
 license: MIT
 ---

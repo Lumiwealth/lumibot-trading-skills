@@ -1,7 +1,7 @@
 ---
 name: stock-etf-strategies
-title: Stock and ETF Strategies in LumiBot
-description: Load before writing, editing, debugging or backtesting a LumiBot strategy that trades stocks or ETFs, including rotation, rebalancing, momentum, trend following, moving-average crossovers, breakouts, opening-range breakouts, mean reversion, RSI or Bollinger setups, and baskets, or when a stock backtest makes no trades. Covers universe choice, warmup history, cash-bounded sizing, fractional shares, rebalancing, market hours, gaps, benchmarks and BotSpot backtest workflow.
+title: "Stock and ETF Strategies in LumiBot"
+description: "Load before writing, editing, debugging or backtesting a LumiBot strategy that trades stocks or ETFs, including rotation, rebalancing, momentum, trend following, moving-average crossovers, breakouts, opening-range breakouts, mean reversion, RSI or Bollinger setups, and baskets, or when a stock backtest makes no trades. Covers universe choice, warmup history, cash-bounded sizing, fractional shares, rebalancing, market hours, gaps, benchmarks and BotSpot backtest workflow."
 visibility: public
 license: MIT
 ---

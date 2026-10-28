@@ -1,7 +1,7 @@
 ---
 name: lumibot-indicators
-title: LumiBot Indicators and Charting
-description: Use when LumiBot strategy code needs indicator computation, pandas-ta-classic helpers, self.indicators migration, charted indicator lines, trade markers, OHLC visualizations, or missing backtest indicator graph debugging. Not for a chart or indicator question answered in chat; that uses chart-artifacts and data-analysis.
+title: "LumiBot Indicators and Charting"
+description: "Use when LumiBot strategy code needs indicator computation, pandas-ta-classic helpers, self.indicators migration, charted indicator lines, trade markers, OHLC visualizations, or missing backtest indicator graph debugging. Not for a chart or indicator question answered in chat; that uses chart-artifacts and data-analysis."
 visibility: public
 license: MIT
 ---

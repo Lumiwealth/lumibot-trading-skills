@@ -732,6 +732,5 @@ Pass MCP servers via ``mcp_servers=[...]`` in ``self.agents.create(...)``. Built
 Key rules
 ---------
 
-- ``@agent_tool`` is the PRIMARY pattern for adding external data sources only when the user names a real provider/API, uploads reference code, or explicitly asks for a custom integration. Do not invent generic news APIs, placeholder URLs, or new API-key requirements.
 
 Continuation: `references/components-overview.part-02.md`
