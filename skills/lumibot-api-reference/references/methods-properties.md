@@ -1,3 +1,10 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
+---
+name: lumibot-methods-properties
+description: Use when checking LumiBot Strategy methods, broker-safe getters, order APIs, positions, quotes, history, charts, or strategy properties.
+---
+
 The following methods and properties are available in the Strategy class:
 
 ORDER MANAGEMENT
@@ -18,10 +25,10 @@ close_position(self, asset: Union[str,Asset], fraction: float = 1.0) -> Optional
 
 ## Cash-bounded stock entry and complete exits
 
-Executable cash-bounded stock-entry and full-exit examples live in the
-`lumibot-strategy-building` skill. Use it when implementing or repairing
+The canonical, executable stock-entry and full-exit examples now live near the
+start of `lumibot-strategy-building`. Load that skill when implementing or repairing
 cash-only execution. The API signatures above remain the method contract;
-those examples are strategy code, not additional built-in Strategy methods.
+the example is strategy code, not an additional built-in Strategy method.
 
 ACCOUNT MANAGEMENT
 
@@ -43,9 +50,9 @@ get_last_prices(self, assets: List[Union[str, Asset]], quote: Optional[Asset] = 
 get_historical_prices(self, asset: Union[Asset,str], length: int, timestep: str = "", quote: Optional[Asset] = None, include_after_hours: bool = True) -> "Bars" - Bars.df is timezone-aware datetime with open/high/low/close/volume (+return, dividends when present); returns None if the data source has no bars; prefer `bars.pandas_df` and pandas operations (do NOT use `return_polars`; deprecated)
 get_historical_prices_for_assets(self, assets: List[Union[Asset,str]], length: int, timestep: str = “minute”, include_after_hours: bool = True) -> Dict[Asset,Bars] - Batch/threaded request; keys are sanitized assets or (base, quote) tuples; values are Bars or None per asset # Use get_historical_prices_for_assets when getting prices for a list of assets, it is much faster than get_historical_prices in a loop
 get_quote(self, asset: Asset, quote: Optional[Asset] = None, exchange: Optional[str] = None) -> Optional[Quote] - Quote includes price, bid, ask, sizes, volume, timestamp (and mid_price); unavailable/error reads may return None. For options and thin markets, prefer quote.mid_price (with bid/ask validation) over get_last_price()
-get_quotes(self, assets: List[Asset], quote: Optional[Asset] = None, exchange: Optional[str] = None) -> Dict[Asset, Optional[Quote]] - Available from LumiBot 4.6.19. Exact Asset keys preserve option identity. Schwab batches up to 50 symbols per HTTP request; other data sources may fall back to individual get_quote calls. Options honor the configured option data source. Native batch errors raise; absent quotes remain None without automatic per-contract retries. Preserve provider timestamps and the strategy's existing missing/stale-data policy. get_last_prices returns trade prices and cannot replace bid/ask formulas. See the `fast-lumibot-strategies` skill (reference `references/scanner-performance.md`) for bounded scanner use.
-OptionsHelper.evaluate_option_market(option_asset: Asset, max_spread_pct: Optional[float] = None, *, quote: Optional[Quote] = None) -> OptionMarketEvaluation - This is a different return type from Quote. In 4.6.20 it has bid, ask, last_price, spread_pct, has_bid_ask, spread_too_wide, missing_bid_ask, missing_last_price, buy_price, sell_price, used_last_price_fallback, max_spread_pct and data_quality_flags. OptionMarketEvaluation does not have `mid_price`. Preserve an existing midpoint formula using its bid/ask fields or the exact supplied Quote.mid_price; buy_price and sell_price are execution anchors, not interchangeable midpoint values. An explicit quote must belong to this exact option. Do not pass a missing snapshot member as quote=None, which means no supplied quote and may fetch again. Check the public LumiBot source for the return type before relying on any other attribute.
-Quote freshness evidence (verified LumiBot 4.6.20): inspect quote_time, bid_time and ask_time separately from request completion. In SchwabData, the general Quote.timestamp falls back to the local current time when those provider timestamps are absent; it therefore cannot by itself prove a recent market observation. Missing provider times remain unknown. Unchanged bid/ask values do not establish stale data, and a successful request does not establish a real-time entitlement. Match the exact asset, expiry, strike, right and observation times when comparing an option formula with another screen. Preserve the user's existing stale/missing-data policy; do not invent a new maximum age or loosen entry thresholds to force a trade. A hosted runtime or tool response may normalize option quote times, so inspect the actual returned fields rather than assuming this fallback reached the response you are reading.
+get_quotes(self, assets: List[Asset], quote: Optional[Asset] = None, exchange: Optional[str] = None) -> Dict[Asset, Optional[Quote]] - Available from LumiBot 4.6.19. Exact Asset keys preserve option identity. Schwab batches up to 50 symbols per HTTP request; other data sources may fall back to individual get_quote calls. Options honor the configured option data source. Native batch errors raise; absent quotes remain None without automatic per-contract retries. Preserve provider timestamps and the strategy's existing missing/stale-data policy. get_last_prices returns trade prices and cannot replace bid/ask formulas. See scanner-performance.md for bounded scanner use.
+OptionsHelper.evaluate_option_market(option_asset: Asset, max_spread_pct: Optional[float] = None, *, quote: Optional[Quote] = None) -> OptionMarketEvaluation - This is a different return type from Quote. In 4.6.20 it has bid, ask, last_price, spread_pct, has_bid_ask, spread_too_wide, missing_bid_ask, missing_last_price, buy_price, sell_price, used_last_price_fallback, max_spread_pct and data_quality_flags. OptionMarketEvaluation does not have `mid_price`. Preserve an existing midpoint formula using its bid/ask fields or the exact supplied Quote.mid_price; buy_price and sell_price are execution anchors, not interchangeable midpoint values. An explicit quote must belong to this exact option. Do not pass a missing snapshot member as quote=None, which means no supplied quote and may fetch again. Inspect the matching public return-type source before inventing another attribute.
+Quote freshness evidence (verified LumiBot 4.6.20): inspect quote_time, bid_time and ask_time separately from request completion. In SchwabData, the general Quote.timestamp falls back to the local current time when those provider timestamps are absent; it therefore cannot by itself prove a recent market observation. Missing provider times remain unknown. Unchanged bid/ask values do not establish stale data, and a successful request does not establish a real-time entitlement. Match the exact asset, expiry, strike, right and observation times when comparing an option formula with another screen. Preserve the user's existing stale/missing-data policy; do not invent a new maximum age or loosen entry thresholds to force a trade. hosted backtest service may apply its own option-time normalization, so inspect the actual returned fields rather than assuming this fallback reached the tool response.
 Schwab error-boundary compatibility (verified 4.6.20): get_quote catches exceptions from get_quotes([asset]) and returns None. Direct get_quotes does not catch malformed-member ValueError/TypeError, request-level ConnectionError, or native HTTP transport errors. Numeric quote fields containing strings can raise TypeError during Quote construction; an HTTP read timeout can propagate as httpx.HTTPError. Bound recovery at the acquisition boundary, while allowing unrelated strategy errors to propagate. A ConnectionError alone does not establish provider-wide downtime. For example, a returned contract whose quote field is a list raises ValueError in _quote_from_response and aborts the bulk call, even if another contract has a valid quote. Replacing singleton reads with an unhandled bulk call therefore changes reachable behavior. Use the bounded quote-snapshot example to retain healthy members; do not convert a whole-provider outage into a successful empty scan or fall back to an unbounded serial loop.
 get_yesterday_dividend(self, asset: Asset) -> Optional[float]
 
@@ -53,7 +60,7 @@ INDICATORS (self.indicators)
 
 self.indicators is the PREFERRED, high-performance way to compute indicators. It caches results per-(asset, timestep, params) and uses O(log N) timestamp lookup instead of recomputing every iteration. Prefer to rewrite hand-rolled `df[...].rolling(...).mean()`, `.ewm(...).mean()`, `np.where(...)` loops, or maintained `compute_indicators()` helpers to use it when you can make the change mechanically without changing behavior. If current logs or context show that an API is unavailable, do not use that API; explain the upgrade path instead.
 
-Built-in passthrough (pandas-ta-classic, ~130 indicators available: SMA, EMA, RSI, MACD, ATR, BBANDS, ADX, STOCH, VWAP, SUPERTREND, etc.):
+Built-in passthrough (pandas-ta-classic, ~130 indicators available — SMA, EMA, RSI, MACD, ATR, BBANDS, ADX, STOCH, VWAP, SUPERTREND, etc.):
   sma_50 = self.indicators.sma(asset, length=50, timestep="day")
   rsi_14 = self.indicators.rsi(asset, length=14, timestep="minute")
   macd = self.indicators.macd(asset, fast=12, slow=26, signal=9, timestep="minute")
@@ -86,7 +93,7 @@ Custom indicators (replaces legacy compute_indicators() pattern):
   row = self.indicators.custom("ema_cross", _compute, asset, timestep="minute")
   if row.ema_fast > row.ema_slow: ...
 
-The cache auto-invalidates when new bars arrive (data-tag fingerprint of `(len(df), df.index[-1])`), so you never need to manually clear it. Call self.indicators.<fn>(...) directly inside on_trading_iteration; no warmup, no manual caching.
+The cache auto-invalidates when new bars arrive (data-tag fingerprint of `(len(df), df.index[-1])`), so you never need to manually clear it. Call self.indicators.<fn>(...) directly inside on_trading_iteration — no warmup, no manual caching.
 
 When porting a legacy strategy: (a) DELETE any `df = self.get_historical_prices(...).df` followed by `df["sma_x"] = df["close"].rolling(x).mean()` and replace with `sma_x = self.indicators.sma(asset, length=x, timestep="day")`; (b) never read an attribute from a single-column built-in return value; (c) DELETE any `compute_indicators()` helper and move its body into a local/nested function passed into `self.indicators.custom(...)`.
 

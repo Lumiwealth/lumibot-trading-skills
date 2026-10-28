@@ -1,6 +1,21 @@
-Below is the standard single-file LumiBot strategy shape. Adapt it:
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
-```python
+---
+name: lumibot-strategy-structure
+description: Use when reviewing or editing overall LumiBot strategy file shape, imports, class structure, main block, and runnable script organization.
+---
+
+The initial-purchase example below intentionally acts only on its first
+iteration. Use that lifetime only for an explicitly initial/one-time policy.
+For recurrent entry Rules, evaluate each eligible session/signal and retain only
+the owned unresolved-order/position duplicate blocker. Do not copy the example's
+`self.first_iteration` guard or add a lifetime `entry_submitted` flag that prevents
+all future legitimate entries. Account-budget anchors are different: persist the
+first verified value before unrelated missing-price/history returns, then keep
+that baseline rather than resetting it when a new entry is allowed.
+
+Below is an example snippet you can adapt:
+
 from lumibot.strategies.strategy import Strategy
 from lumibot.traders import Trader
 from lumibot.entities import Asset, TradingFee, Order
@@ -51,6 +66,7 @@ if __name__ == "__main__":
             buy_trading_fees=[trading_fee],
             sell_trading_fees=[trading_fee],
             quote_asset=Asset("USD", Asset.AssetType.FOREX), # Quote asset for the strategy. Most users don't want to change this, keep it as USD unless otherwise specified.
+            parameters=params, # Only needed if you load a config
         )
     else:
         ####
@@ -64,10 +80,5 @@ if __name__ == "__main__":
         )
         trader.add_strategy(strategy)
         strategies = trader.run_all()
-```
 
-Notes:
-
-- Keep the whole strategy in one file with one `parameters = {}` dictionary at the top of the class. Do not set parameters again in the `__main__` block.
-- `datasource_class=None` lets the environment choose the backtesting data provider. On BotSpot, the backtest run window and data provider are set by `start_backtest`, so do not hardcode backtest dates in the script.
-- The broker for live trading is chosen from environment variables. Strategy code should never contain broker keys or broker-specific API calls.
+We want your code to replicate or adapt that structure. Use a single code block, no triple backticks, with inline comments.

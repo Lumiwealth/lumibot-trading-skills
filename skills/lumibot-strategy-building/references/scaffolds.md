@@ -1,104 +1,147 @@
-# First-version strategy templates
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
-Use these patterns as a starting shape for a new strategy's first version. They
-never replace the user's request: keep the user's named asset, direction, risk
-limits and rejected ideas first, then adapt the closest template. The goal is a
-first version whose own logic has a realistic chance to trade in its test
-window. Templates must never become fake proof trades or backtest-only branches.
-When the user gave exact rules, implement those rules; simplify only with the
-user's approval.
+---
+name: strategy-template-catalog
+description: Use when choosing a known-good first-cycle strategy scaffold before generating or refining a BotSpot strategy.
+---
 
-## US stocks and ETFs
+# Strategy Template Catalog
 
-Examples: SPY, QQQ, IWM, AAPL, NVDA, leveraged ETFs.
+Use these patterns as starting guidance for first-cycle strategy creation.
+They are not substitutes for the raw user request. Preserve the user's named
+asset, direction, risk constraints, and rejected ideas first, then adapt the
+closest template so the strategy's own simplified first revision has a
+realistic path to at least one filled trade in the first-test
+window. These templates must not become fake proof trades or unrelated
+backtest-only branches.
 
+## us_stock_etf_first_cycle_smoke
+
+Best for US stock or ETF strategies such as SPY, QQQ, IWM, AAPL, NVDA, SPXL,
+or TQQQ.
+
+Template contract:
 - In `initialize`, create one to three `Asset(symbol, Asset.AssetType.STOCK)`
-  objects in `self.vars`, set `sleeptime`, and keep thresholds in `parameters`.
-- In `on_trading_iteration`, fetch a small bar window filtered to the current
-  simulated time and a reference price. Use simple logic that belongs to the
-  idea: momentum buys strength, mean reversion buys weakness, risk-off reduces
-  exposure, ranking strategies rank a tiny liquid universe.
-- Run exits, stops and risk caps from the start.
+  objects, set a small risk budget, and keep user thresholds as parameters.
+- In `on_trading_iteration`, fetch a small bar window and a current/reference
+  price. Use simple first-revision signal logic that belongs to the user's idea:
+  momentum can buy strength, mean reversion can buy weakness, risk-off can reduce
+  or avoid exposure, and contest/ranking strategies can rank a tiny liquid
+  universe.
+- Run the user's exits, stops, and risk caps from the beginning.
 - Log skipped entries with the exact condition that blocked them.
 
-Avoid for a sample bot: 20/50 or 50/200 crossovers, rare RSI extremes, volume
-plus trend plus breakout stacks, or any warmup gate as the only entry path.
-(If the user asked for those rules, use them and pick a long enough window.)
+Avoid:
+- 20/50, 50/200, rare RSI extremes, volume plus trend plus breakout stacks, or
+  any warmup gate as the only entry path for the first cycle.
 
-See `stock-etf-strategies` for complete breakout, mean-reversion and
-moving-average examples.
+## usd_quoted_crypto_first_cycle_smoke
 
-## Crypto (spot market)
+Best for BTC/USD, ETH/USD, BTC/USDT, ETH/USDT, BTC/EUR, ETH/EUR, or similar
+spot crypto pairs with a proven runner/data path.
 
-Examples: BTC/USD, ETH/USD, BTC/USDT, ETH/USDT, BTC/EUR.
+Template contract:
+- Create the base coin as `Asset("BTC", Asset.AssetType.CRYPTO)` or
+  `Asset("ETH", Asset.AssetType.CRYPTO)` and create the quote separately as
+  `Asset("USD", Asset.AssetType.FOREX)` or the requested quote asset.
+- Do not encode `BTC-USD`, `BTC/USD`, `BTCUSD`, `BTC/EUR`, or `BTCEUR` as the
+  crypto base symbol.
+- Treat crypto as 24/7. Use quote-aware history/price/order calls.
+- Use a simple first-revision version of the requested crypto signal before
+  long warmups, crossovers, or stacked gates can return with no trade.
 
-- Base coin as `Asset("BTC", Asset.AssetType.CRYPTO)`; quote created separately
-  as `Asset("USD", Asset.AssetType.FOREX)` or the requested quote asset.
-- Never encode `BTC-USD`, `BTC/USD`, `BTCUSD`, `BTC/EUR` or `BTCEUR` as the
-  base symbol.
-- `self.set_market("24/7")`; pass the quote asset to history, price and order
-  calls.
-- Avoid huge history requests (for example 10,000 bars) and never convert
-  BTC/EUR to USD silently.
+Avoid:
+- huge history fetches such as 10000 bars;
+- converting BTC/EUR or ETH/EUR to USD silently.
 
-Details: `references/crypto-strategies.md`.
+## supported_futures_first_cycle_smoke
 
-## Futures
+Best for ES, MES, NQ, MNQ, RTY, M2K, US100, NAS100, or Nasdaq 100 futures-style
+requests that BotSpot can express as supported futures.
 
-Examples: ES, MES, NQ, MNQ, RTY, M2K, Nasdaq 100 futures.
+Template contract:
+- Use `Asset.AssetType.CONT_FUTURE` for ES/MES/NQ/MNQ-style continuous futures
+  unless the user explicitly asks for a dated contract.
+- Create a helper that first tries `get_last_price(asset)` and then falls back
+  to the latest completed historical bar close from `get_historical_prices`.
+- Use that reference price for sizing and validation decisions.
+- Use a simple first-revision version of the requested futures signal before
+  session windows, breakout boxes, indicator warmup, or strict confirmation
+  gates can skip every bar.
+- If the strategy has session windows, compare plain `datetime.time` values or
+  normalize all datetimes through the same LumiBot timezone helper before
+  comparing. Never compare naive `datetime(...)` objects against
+  `self.get_datetime()` or bar-index timestamps; that can crash with
+  offset-naive versus offset-aware datetime errors.
 
-- Use `Asset.AssetType.CONT_FUTURE` with the root symbol for continuous futures
-  unless the user asks for a dated contract.
-- A reference-price helper that tries `get_last_price(asset)` first and falls
-  back to the latest completed bar close from `get_historical_prices`. Use it
-  for sizing and order decisions.
-- Session windows compare plain `datetime.time` values, or datetimes converted
-  to the same timezone. Never compare a naive `datetime(...)` with
-  `self.get_datetime()` or bar timestamps.
+Avoid:
+- logging only "price unavailable" while OHLC bars exist;
+- silently substituting QQQ for a futures request.
 
-Avoid: logging only "price unavailable" while bars exist; substituting QQQ for
-a futures request. Details: `references/futures-strategies.md`.
+## us_options_first_cycle_smoke
 
-## US options
+Best for US stock/ETF/index options where the user wants calls, puts, spreads,
+covered calls, wheels, or options momentum.
 
-Calls, puts, spreads, covered calls, wheels, options momentum.
+Template contract:
+- Use `OptionsHelper` with documented methods only: `self.get_chains(...)`,
+  `get_expiration_on_or_after_date(...)`, `find_next_valid_option(...)`, and
+  `evaluate_option_market(...)`.
+- Before indicator gates or complex spread validation can return, use a
+  simplified first-revision option path that still matches the user's direction,
+  DTE range, and instrument.
+- If a multi-leg spread is too strict for the first smoke, make the first saved
+  revision a single-leg version of the same directional idea. If an indicator is
+  unavailable, log that the strict signal is deferred, but do not skip the
+  first-cycle order path when the underlying price, option chain, and actionable
+  option price are available.
+- Buy one contract or the smallest affordable size when
+  `OptionsHelper.has_actionable_price(evaluation)` is true and
+  `evaluation.buy_price` is executable. Use a permissive smoke spread cap such
+  as `max_spread_pct=1.0`.
+- Keep the user's multi-leg spread/wheel/covered-call logic as stricter later
+  revision logic or as a secondary path after the simplified first-revision path.
+- Use `import numpy as np` for numeric math. Never use `pd.np`; modern pandas
+  does not expose that alias and the backtest will fail before trades are
+  written.
 
-- Use `OptionsHelper` with documented methods only: `self.get_chains(...)` as
-  input, `get_expiration_on_or_after_date(...)`, `find_next_valid_option(...)`,
-  `find_strike_for_delta(...)` with keyword arguments including
-  `underlying_price`, and `evaluate_option_market(...)`.
-- Trade only when `OptionsHelper.has_actionable_price(evaluation)` is true;
-  otherwise log the evaluation's data quality flags and skip.
-- Size with the 100 multiplier and `TradingFee(per_contract_fee=0.65)`.
-- Use `import numpy as np` for numeric math. Never `pd.np`; modern pandas does
-  not have it.
-- For a sample options bot, a single-leg version of the directional idea is a
-  fine first version. For a user who asked for a specific spread, build that
-  spread; ask before replacing it with a simpler structure.
+Avoid:
+- inventing helper names such as `get_chains_expirations_with_data`;
+- using `evaluation.mid_price`;
+- letting one missing or wide spread leg block the whole first smoke run;
+- returning from `on_trading_iteration` because RSI or another normal-mode
+  indicator is unavailable before the starter path has tried to enter.
 
-Avoid: invented helper names; using a mid price without validating bid and ask;
-returning from the iteration before trying the entry path just because a
-secondary indicator is still warming up. See `options-strategies`.
+## ai_agent_trader_scaffold
 
-## AI-owned trading
+Best when the user explicitly asks for an AI, LLM, GPT, Gemini, Claude, or
+agent-owned trading strategy.
 
-When the user asks for an AI, LLM or agent-owned strategy:
+Template contract:
+- Create the agent or agent committee once in `initialize`.
+- Keep `on_trading_iteration` as a thin delegation layer unless the user asked
+  for deterministic hybrid controls.
+- Use `allow_trading=True` only for the final trading agent that should place
+  orders. Research, bull, bear, and risk-review agents should use
+  `allow_trading=False`.
+- For first-cycle validation, prefer a clear trading-enabled final agent prompt
+  that tells it to place orders when justified; do not create a parallel
+  indicator strategy unless the user asked for hybrid execution.
 
-- Create the agent (or research agents plus one trading agent) once in
-  `initialize`.
-- Keep `on_trading_iteration` a thin delegation layer unless the user asked for
-  deterministic hybrid controls.
-- Only the final trading agent has trading enabled; research and review agents
-  do not.
-- Do not parse agent prose with brittle substring checks, and do not add manual
-  order submission around a trading-enabled agent unless the code prevents
-  duplicate execution.
+Avoid:
+- parsing agent prose with brittle substring checks;
+- adding manual order submission around a trading-enabled agent unless the code
+  prevents duplicate execution.
 
-See `lumibot-ai-agents` for the full pattern.
+## supported_starter_first_cycle_smoke
 
-## Sample or starter request
+Best when the user asks for a sample, starter, demo, or first BotSpot strategy
+but does not specify a detailed method.
 
-- If the user named a supported market, use the matching template above.
-- If they asked for a sample or default bot without a market, use a simple SPY
-  stock template and explain that default after building.
-- Otherwise ask one short question for the market before building.
+Template contract:
+- If the user named a concrete supported market, use the matching template
+  above.
+- If the user did not name a market and this is a sample/default build, use a
+  simple SPY stock/ETF starter and explain the default after tool execution.
+- If the user did not name a market and did not ask for a sample/default build,
+  ask one concise clarification before generation.

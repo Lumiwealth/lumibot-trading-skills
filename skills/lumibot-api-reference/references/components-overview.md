@@ -1,3 +1,10 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
+---
+name: lumibot-components
+description: Use when LumiBot strategy code needs components, indicators, OptionsHelper, AI agents, or reusable LumiBot helpers.
+---
+
 HOW TO LOAD AND USE COMPONENTS
 
 Below is an example of how you might load and use any of the components (for example, OptionsHelper) in a LumiBot strategy:
@@ -108,13 +115,13 @@ BAR AVAILABILITY AND TIMING:
 MIGRATION RULES (only for a requested or necessary behavior-preserving change):
 1. If you see `df = self.get_historical_prices(asset, length=...).df` followed by `df["sma_x"] = df["close"].rolling(x).mean()` (or `.ewm(...)`, or any pandas window op producing an indicator column), consider replacing it with `sma_x = self.indicators.sma(asset, length=x, timestep=...)` (or the appropriate built-in scalar). Do not read an attribute from a single-column built-in return value.
 2. If you see a `compute_indicators(self, asset)` helper, consider moving its body into a local/nested function passed into `self.indicators.custom("name", fn, asset, timestep=...)`.
-3. Do this migration when you can make it as a safe, local mechanical change that preserves behavior. If user-provided logs or current context show that the API you would use is unavailable, do not use that API; explain the upgrade path instead.
+3. Do this migration when you can make it as a safe, local mechanical change that preserves behavior. If user-provided logs or current context show that the API you would use is unavailable, do not use that API; explain the upgrade path instead. Record the change in the `changes` field as "Performance upgrade: migrated to self.indicators".
 
 --------------------------------------------------------------
 CHARTED INDICATORS AND SIGNALS
 --------------------------------------------------------------
 
-Use this section when a user asks to add, inspect, explain, or fix strategy charts, indicator graphs, plotted signals, trade markers, backtest visualizations, missing indicators, missing markers, or anything involving `add_line`, `add_marker`, or `add_ohlc`.
+Use this skill when a user asks to add, inspect, explain, or fix strategy charts, indicator graphs, plotted signals, trade markers, backtest visualizations, missing indicators, missing markers, or anything involving `add_line`, `add_marker`, or `add_ohlc`.
 
 Core rule: logging is not charting. `self.log_message(...)` explains decisions in logs, but it does not create indicator graph data. Anything the user expects to see on the backtest indicator chart must be emitted through:
 
@@ -237,13 +244,13 @@ Marker rules:
 
 - Never add a marker on every iteration for a continuous value. That makes charts unusable. Use `add_line` instead.
 - Add markers only when an event happens. Examples: entry signal, submitted buy, filled buy, exit signal, submitted sell, stop triggered, crossover confirmed.
-- If users complain that trades are missing from the chart, first check whether every trade path has a marker. A strategy can be missing marker emissions independently of any display problem.
+- If users complain that trades are missing from the chart, check whether every trade path has a marker and whether the platform's trade chart/artifact path is also working. A strategy can be missing marker emissions and the UI can still have a separate artifact/display bug.
 
 Backtest artifact debugging:
 
 - `indicators.csv` and `indicators.parquet` come from the accumulated `add_line`, `add_marker`, and `add_ohlc` calls.
-- On BotSpot, read these backtest outputs with `get_backtest_artifact` (and `query_csv` for CSV tables) to confirm the strategy emitted the rows you expect before changing strategy logic.
-- If `indicators.csv` or `indicators.parquet` has the expected rows but the chart does not show them, that is a display problem, not a strategy bug; report it with `send_feedback`.
+- If the strategy emits chart data but the UI does not show it, inspect artifact metadata and the artifact manifest for `indicators.html`, `indicators.csv`, and `indicators.parquet` consistency before changing strategy logic.
+- If `indicators.csv`/parquet has expected rows but HTML or the UI is missing them, treat that as a product serving/rendering bug.
 
 --------------------------------------------------------------
 OPTIONSHELPER COMPONENT
@@ -377,7 +384,7 @@ import datetime
 
 def on_trading_iteration(self):
     # Define the Bioguide ID (e.g., for a specific congressperson)
-    bioguide_id = "X000000"  # Placeholder: replace with the Bioguide ID you want to follow
+    bioguide_id = "P000197"  # Example Bioguide ID
     as_of_date = datetime.date.today()  # Only include transactions on or before today
 
     # Retrieve trading data for the given Bioguide ID
@@ -393,7 +400,7 @@ ADDITIONAL CONSIDERATIONS
 	•	API Key Setup:
 Ensure you have a .env file with your QuiverQuant API key stored as:
 
-QUIVER_API_KEY=<your QuiverQuant key>
+QUIVER_API_KEY=your_api_key_here
 
 The API key is loaded at runtime using dotenv.load_dotenv().
 
@@ -410,7 +417,7 @@ PERPLEXITYHELPER COMPONENT
 
 A helper for querying Perplexity’s API via an OpenAI-compatible client.
 It supports two types of queries:
-	•	Financial news queries: Returns structured financial news data, ideal for getting current news such as earnings reports, analyst recommendations, and other market-moving events.
+	•	Financial news queries: Returns structured financial news data—ideal for getting current news such as earnings reports, analyst recommendations, and other market-moving events.
 	•	General queries: Returns structured responses based on a provided (or default) JSON schema, which is useful for finding symbols that match specific criteria, identifying volatile stocks, or retrieving other trading-related insights.
 
 This component is especially valuable because it can perform live searches to gather real-time information, ensuring your strategy has access to the latest data when making decisions.
@@ -478,8 +485,7 @@ from lumibot.components.perplexity_helper import PerplexityHelper
 	2.	Instantiate the helper in your strategy’s initialize() method:
 
 def initialize(self):
-    # Needs `import os`. Read the key from the environment; never hardcode it or use a placeholder default.
-    self.perplexity_helper = PerplexityHelper(api_key=os.getenv("PERPLEXITY_API_KEY"))
+    self.perplexity_helper = PerplexityHelper(api_key="your_api_key_here")
 
     3.	Call its functions in a lifecycle method (e.g., on_trading_iteration):
 def on_trading_iteration(self):
@@ -504,35 +510,74 @@ The PerplexityHelper is highly effective at retrieving current, real-time data. 
 DRIFTREBALANCERLOGIC COMPONENT
 --------------------------------------------------------------
 
-`DriftRebalancerLogic` calculates weight drift per asset and submits the orders
-needed to return the portfolio to its target allocation. The constructor,
-parameters, drift rules and a complete example are in
-`references/drift-rebalancer.md` of this skill.
+Load `references/drift-rebalancer.md` for the current API and its execution
+contract. `rebalance()` returning True reports selected/submitted work, not
+confirmed fills or satisfied allocation weights. A delay is not confirmation
+of sell proceeds or proof of sufficient cash for fees and eventual buys.
+For a scheduled Python-owned cash portfolio, also load
+`lumibot-strategy-building:references/rebalance-state.md`; its complete tested
+source-copy owner retains accepted targets between signal dates. Preserve the
+user's actual fractional, account and order policies where that example's
+whole-unit contract does not apply. Do not label a portfolio rebalanced merely
+because orders were submitted.
 
 --------------------------------------------------------------
 AI AGENTS COMPONENT
 --------------------------------------------------------------
 
-Use this component when the user wants an AI model to make or inform trading
-decisions (non-deterministic, AI-powered trading). For the full design guide
-(agent teams, prompts, tools, news, cost-aware backtesting), load the
-`lumibot-ai-agents` skill. This section is the API summary.
+Use this component when the user wants an AI model to make trading decisions for them. This is for non-deterministic, AI-powered trading where an LLM analyzes data and decides what to buy, sell, or hold. The AI agent replaces hardcoded trading rules with intelligent, adaptive decision-making.
 
-Use AI agents when the user asks for AI, agents, an LLM, or adaptive reasoning
-over news, economic data or market conditions. Do not use them when the strategy
-is fully expressible as deterministic rules and indicators.
+IMPORTANT: BotSpot-managed inference uses BotSpot credits and needs no personal key. Explicit BYOK/local AI agents require exactly one model-provider API key, matching the ``default_model`` you pick:
 
-Model and keys: `default_model` picks the model. When running LumiBot yourself,
-supply exactly one model-provider API key that matches it:
+- OpenAI: ``default_model="openai/<model>"`` -- needs ``OPENAI_API_KEY``
+- Gemini: ``default_model="<gemini model>"`` (bare id, no provider prefix, exactly as in CURRENT AI MODELS, including any ``-preview`` suffix) needs ``GEMINI_API_KEY``
+- xAI Grok: ``default_model="xai/<model>"`` -- needs ``XAI_API_KEY``
+- Anthropic Claude: ``default_model="anthropic/<model>"`` -- needs ``ANTHROPIC_API_KEY``
 
-- OpenAI: ``default_model="openai/<model>"`` needs ``OPENAI_API_KEY``
-- Gemini: ``default_model="<gemini model id>"`` (bare id, no provider prefix) needs ``GEMINI_API_KEY``
-- xAI Grok: ``default_model="xai/<model>"`` needs ``XAI_API_KEY``
-- Anthropic Claude: ``default_model="anthropic/<model>"`` needs ``ANTHROPIC_API_KEY``
+Unless the user picks a model, use the model marked (default) in the CURRENT AI MODELS table at the end of the system prompt (the BotSpot AI model picker, with price and benchmark score per model) and take its exact id from there. Old models such as GPT-4o are never your choice. If the user insists on one, push back once (say it is old and recommend a model from the table), then use exactly the model they named.
 
-Prefer a current model the user chooses. Non-Gemini ids are routed through
-LiteLLM (which ships with LumiBot). The backtest replay cache keys on the model
-id, so switching models produces fresh runs rather than stale replays.
+Non-Gemini ids are routed through LiteLLM (which ships with LumiBot). The replay cache keys on the model id, so swapping providers on the same backtest produces fresh runs rather than stale cross-model replays.
+
+Use AI agents when:
+
+- The user wants an AI to decide what to trade based on news, economic data, or market conditions
+- The user wants non-deterministic trading where the AI reasons about evidence before acting
+- The user describes a strategy in natural language like "buy stocks with strong momentum" or "allocate based on macro conditions"
+
+For macro AI-agent strategies such as Ray Dalio-style allocation, Citadel-style
+sector pods, Buffett value selection, or multi-agent investment committees,
+make the evidence tools explicit:
+
+- If the strategy should reason from news, add the real LumiBot/BYOK news tool,
+  usually `BuiltinTools.news.alpaca_news()`, and make sure the matching Alpaca
+  credentials are available to the backtest/runtime.
+- If the strategy should reason from macroeconomic data, add a real provider
+  tool only when the user has or requests that provider. For FRED use
+  `FRED_API_KEY`; for Alpha Vantage macro endpoints use `ALPHAVANTAGE_API_KEY`.
+  Do not imply a macro agent is using Federal Reserve data unless the saved code
+  exposes a working macro data tool and the required key is supplied.
+- Tell the agent prompt which evidence sources to inspect before trading:
+  prices/positions, news headlines/articles, macro indicators, and risk regime.
+- Keep the trading agent responsible for the final order decision, but require
+  it to cite or summarize which upstream agent advice it accepted, rejected, and
+  why. This makes `agent_detail.parquet` useful for later analysis.
+- If tools are omitted for cost or first-smoke speed, say that in the strategy
+  description and test a variant later instead of pretending the tool exists.
+
+Do NOT use AI agents when:
+
+- The user wants deterministic, rule-based trading (e.g., "buy when RSI < 30")
+- The strategy can be fully expressed with if/else logic and indicators
+- The user does not mention AI, agents, LLM, or intelligent/adaptive decision-making
+
+First-cycle backtest rule:
+- Keep the first AI-owned backtest short: about a week for ordinary daily decisions, or one to two completed sessions when the selected model or cadence makes it expensive. Explain the chosen window and credit implications. A user who explicitly selected the model and asked to start validation has already made that choice: proceed within that scope without demanding the same approval again. Ask only for a genuinely missing spending choice or an actual credit/entitlement requirement returned by the tool. Never switch models or reasoning to reduce cost without permission.
+- Do not call the LLM on every smoke iteration before the first filled trade; keep the first revision practical by limiting the AI call cadence, universe, and prompt size while preserving the AI decision path.
+- Preserve the user's AI-agent live behavior, but make the first revision practical: use one trading-enabled final agent, a tiny supported universe, short prompts, and simple risk controls so the normal agent path can place a real order during the first AI-owned test.
+- Do not add an unrelated deterministic `self.is_backtesting` order that bypasses the AI-agent decision path. If the LLM path is too slow, reduce agent count, reduce universe size, cache/limit evidence, or simplify the final agent prompt instead of adding a fake proof trade.
+- Run the normal agent decision path before date gates, contest-window gates, market-session gates, or strict filters that can return early. Otherwise the first-cycle strategy exists in code but never executes.
+- Explain any first-revision simplifications in the description; later revisions can tighten the requested AI-agent decision flow.
+- If a rescue backtest is timing out or spending most of its time inside agent calls, refine by simplifying the agent path and universe instead of adding more AI-agent roles or a bypass trade.
 
 Core imports
 ------------
@@ -541,70 +586,32 @@ Core imports
 from lumibot.components.agents import BuiltinTools, MCPServer, agent_tool
 ```
 
-Create and run
---------------
+How to create an agent
+----------------------
 
-Create each agent once in ``initialize()`` with a short system prompt (2-3
-sentences). Built-in tools (positions, portfolio, prices, orders, DuckDB, docs
-search) are always included automatically, even when you pass custom ``tools``
-or ``mcp_servers``.
+Preserve the user's explicit reasoning setting with `reasoning_effort` on each
+`self.agents.create(...)`, alongside `default_model`, using the current model
+catalog's supported values. Reasoning belongs in executable configuration;
+mentioning it only in prose or Rules does not set it. Do not invent another
+parameter or silently omit the setting. A managed gateway settings rejection
+requires runtime/configuration diagnosis, not removing a supported user choice.
 
-```python
-def initialize(self):
-    self.sleeptime = "1D"
-    self.agents.create(
-        name="researcher",
-        default_model="<model id>",
-        allow_trading=False,
-        system_prompt="Research opportunities and return a bounded evidence packet. Never trade.",
-    )
-    self.agents.create(
-        name="trader",
-        default_model="<model id>",
-        allow_trading=True,
-        system_prompt="Revalidate the evidence and account risk, then trade or hold.",
-    )
 
-def on_trading_iteration(self):
-    research = self.agents["researcher"].run(
-        context={"current_datetime": self.get_datetime().isoformat()}
-    )
-    self.agents["trader"].run(context={"research": research.summary})
-```
+Create the agent once in ``initialize()`` with a short system prompt (2-3 sentences) describing the trading strategy. All built-in tools (positions, portfolio, prices, orders, DuckDB) are ALWAYS included automatically, even when you add custom tools or MCP servers.
 
-``AgentRunResult`` fields: ``summary``, ``text``, ``cache_hit`` (replayed from
-the backtest cache), ``warning_messages``, ``tool_calls``, ``tool_results`` and
-``payload`` (trace metadata, including ``trace_path`` when available).
+The PRIMARY pattern for adding external data is ``@agent_tool`` when the user names a real provider/API, uploads reference code, or explicitly asks for a custom integration. Do not invent placeholder APIs, generic NewsAPI calls, fake URLs, or new API-key requirements to satisfy broad requests like "give it news" or "give it more tools".
 
-News
-----
-
-For market news, prefer the built-in Alpaca/Benzinga tool over a custom news
-API:
+For market news, prefer LumiBot's built-in BYOK Alpaca/Benzinga tool instead of inventing a custom news API:
 
 ```python
 tools=[BuiltinTools.news.alpaca_news()]
 ```
 
-It uses the active Alpaca broker credentials when the broker is Alpaca;
-otherwise set ``ALPACA_NEWS_API_KEY`` / ``ALPACA_NEWS_API_SECRET``. It searches
-by symbol and date window, not keyword. Scan first with
-``include_content=False`` (``limit`` 10 to 20 for one symbol, 30 to 50 for broad
-scans), then re-read important stories with ``include_content=True`` and
-``exclude_contentless=True``. Follow ``next_page_token`` with ``page_token``
-when needed. In backtests the tool clamps future ``end`` timestamps to the
-simulated datetime and reports ``lookahead_clamped``. For sparse single-stock
-news, query ETF proxies such as ``SPY,QQQ,DIA,IWM`` or sector ETFs.
+The tool uses the active Alpaca broker credentials when the broker connection is Alpaca. When the active broker is not Alpaca, use the news-specific BYOK env vars ``ALPACA_NEWS_API_KEY`` / ``ALPACA_NEWS_API_SECRET``. Do not tell users to set generic Alpaca broker env vars just to unlock news; generic Alpaca broker credentials are intentionally separate so news access does not confuse broker selection for Tradier, IBKR, or other brokers. It retrieves historical or live news by symbol/date window, not keyword search. Teach the agent to scan first with ``include_content=False``. Use ``limit=10`` to ``20`` for focused single-symbol checks and ``limit=30`` to ``50`` for broad market or sector scans. If a story matters, call again for the same or narrower window with ``include_content=True`` and usually ``exclude_contentless=True`` to read the full article. If ``next_page_token`` is returned and the first page is not enough, call again with ``page_token``. Full article content is not truncated unless ``content_max_chars`` is explicitly set. In backtests, the tool clamps future ``end`` timestamps to the simulated datetime and returns ``lookahead_clamped`` so the agent can avoid look-ahead bias.
 
-Custom tools with ``@agent_tool``
--------------------------------
+For broad or sparse news searches, use ETF proxies rather than random tickers: broad market ``SPY,QQQ,DIA,IWM``; tech/AI/semis ``QQQ,XLK,SMH``; financials/banks ``XLF,KRE``; energy/oil ``XLE,USO``; healthcare/biotech ``XLV,XBI``; rates/bonds ``TLT,IEF,SHY``; gold/commodities ``GLD,SLV,DBC``. Do not trade from a single weak article; compare several articles and their timestamps.
 
-Add ``@agent_tool`` only when the user names a real provider/API, supplies
-reference code, or explicitly asks for a custom integration. Never invent
-placeholder APIs, fake URLs or new API-key requirements. The decorator
-registers the method as a tool, builds its schema from type hints and the
-docstring, and includes the function source in the tool description, so always
-write a Google-style docstring with an ``Args`` section.
+For strict minimal AI-agent requests (for example: "only AI", "no watchlist", "no indicators", "minimal on_trading_iteration", "just tell it to make money"), do not add custom tools, REST calls, trace logging, or result-summary logging. Use built-in agent tools only and keep ``on_trading_iteration`` to the agent call.
 
 ```python
 import os
@@ -632,44 +639,99 @@ def get_economic_indicator(self, indicator: str) -> dict:
 def initialize(self):
     self.agents.create(
         name="research",
-        default_model="<model id>",
-        system_prompt="Use economic data to decide between a growth ETF and a short-term Treasury ETF.",
+        system_prompt=(
+            "Use economic data to decide whether capital should be in "
+            "TQQQ or a defensive asset like SHV. This is a binary allocator."
+        ),
         tools=[self.get_economic_indicator],
     )
 ```
 
-MCP servers (optional, advanced)
---------------------------------
+How ``@agent_tool`` works
+-------------------------
+
+Decorate any strategy method with ``@agent_tool``. The decorator:
+- Registers the function as a tool the agent can call
+- **Auto-includes the function's source code** in the tool description sent to the model, so the agent understands exactly what the tool does
+- Uses the function's type hints and docstring to build the tool schema
+
+Always write Google-style docstrings with an ``Args`` section for every ``@agent_tool`` function. This is critical because the docstring becomes part of the tool description the agent sees.
 
 ```python
+@agent_tool(
+    name="get_watchlist_bias",
+    description="Return a structured bias payload for one symbol.",
+)
+def get_watchlist_bias(self, symbol: str) -> dict:
+    '''Look up the current bias for a symbol from the watchlist.
+
+    Args:
+        symbol: The ticker symbol to look up (e.g. AAPL, MSFT).
+
+    Returns:
+        A dict with symbol and bias keys.
+    '''
+    return {"symbol": symbol, "bias": "neutral"}
+```
+
+Then pass the decorated method in ``tools=[...]``:
+
+```python
+self.agents.create(
+    name="research",
+    system_prompt="...",
+    tools=[self.get_watchlist_bias],
+)
+```
+
+Built-in tools are ALWAYS included automatically, even when you pass a ``tools`` list. Your custom tools are added alongside the built-in ones.
+
+How to run an agent
+-------------------
+
+```python
+def on_trading_iteration(self):
+    result = self.agents["research"].run()
+```
+
+``AgentRunResult`` fields
+-------------------------
+
+- ``result.summary``: short final summary from the agent
+- ``result.text``: concatenated text output
+- ``result.cache_hit``: whether the result came from replay cache during backtesting
+- ``result.warning_messages``: list of observability warnings
+- ``result.tool_calls``: structured tool-call trace events
+- ``result.tool_results``: structured tool-result trace events
+- ``result.payload``: trace metadata, including ``trace_path`` when available
+
+```python
+trace_path = (result.payload or {}).get("trace_path")
+if trace_path:
+    self.log_message(f"Agent trace saved to {trace_path}", color="blue")
+```
+
+Using MCP servers (optional, advanced)
+--------------------------------------
+
+MCP servers connect external data sources (news, economic data, research, etc.) to the agent via a hosted URL. ``@agent_tool`` is the recommended primary pattern, but MCP servers are available when you need a pre-built hosted service.
+
+```python
+from lumibot.components.agents import MCPServer
+
 MCPServer(
     name="my-data-source",
-    url="https://my-mcp-server.example.com/mcp",
+    url="https://my-mcp-server.example.com/mcp?api_key=...",
     exposed_tools=["tool_a", "tool_b"],
     timeout_seconds=120,
 )
 ```
 
-Pass them via ``mcp_servers=[...]`` in ``self.agents.create(...)``. Keep any API
-key in an environment variable, not in strategy source.
+Pass MCP servers via ``mcp_servers=[...]`` in ``self.agents.create(...)``. Built-in tools are always included alongside MCP tools.
 
 Key rules
 ---------
 
-- Create agents once in ``initialize()``; never recreate them every iteration.
-- Keep ``on_trading_iteration`` thin: usually just the agent ``run(...)`` calls.
-- Keep exactly one trading-enabled agent (``allow_trading=True``); research
-  agents use ``allow_trading=False`` and hand off through their summaries.
-- A trading-enabled agent must call ``account_portfolio``, ``account_positions``
-  and ``market_last_price`` for the exact symbol in the same run immediately
-  before ``orders_submit_order``. LumiBot rejects blind orders with
-  ``ORDER_READINESS_REQUIRED``. Say this explicitly in the trader's prompt.
-- If the user wants hard deterministic execution boundaries, set every agent to
-  ``allow_trading=False``, have them return structured recommendations, and let
-  Python own sizing and order submission.
-- AI-agent backtests call a model on every simulated iteration, so they are slow
-  and can cost model usage. Keep the first backtest short (about a week of daily
-  iterations) and the universe small. Do not add a deterministic
-  ``self.is_backtesting`` trade that bypasses the agent path to force a result.
-- Run the agent decision path before date, session or filter gates that can
-  return early, or the agent never executes.
+- ``@agent_tool`` is the PRIMARY pattern for adding external data sources only when the user names a real provider/API, uploads reference code, or explicitly asks for a custom integration. Do not invent generic news APIs, placeholder URLs, or new API-key requirements.
+
+Continuation: `references/components-overview.part-02.md`

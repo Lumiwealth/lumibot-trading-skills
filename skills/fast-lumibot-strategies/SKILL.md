@@ -1,10 +1,14 @@
 ---
 name: fast-lumibot-strategies
+title: Fast and Responsive LumiBot Strategies
 description: Load when a LumiBot strategy is slow, scans many symbols or option contracts, needs fast order handling (cancel after N seconds, immediate hedge or pair legs, OTO/OCO/bracket), or when backtests take too long. Covers sleeptime choice, batched data calls, caching, self.indicators, chunked scanners, bounded quote batching and order state machines.
+visibility: public
 license: MIT
-metadata:
-  title: "Fast and Responsive LumiBot Strategies"
 ---
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
+For external clients, load guides with the BotSpot MCP `skills` tool (action=get, name=<skill>). Resource identifiers written as <skill>:references/<file> use name=<skill> and reference=references/<file>. Installed native clients can read the same local reference file. The following is shared authoring guidance; use the tools actually advertised by your client.
+
 # Fast and Responsive LumiBot Strategies
 
 A LumiBot strategy is slow for a small number of reasons: it runs more

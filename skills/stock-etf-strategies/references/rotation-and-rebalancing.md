@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # Rotation and Rebalancing
 
 Part of the `stock-etf-strategies` skill. Covers fixed-weight portfolios,

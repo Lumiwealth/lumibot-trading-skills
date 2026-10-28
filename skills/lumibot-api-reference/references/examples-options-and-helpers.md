@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # LumiBot examples: options strategies and research helpers
 
 Strike selection for a target expiry, crypto prices, OptionsHelper multi-leg executions (calendar, straddle, strangle, diagonal, ratio), market evaluation, order details, spread profit, and PerplexityHelper queries.

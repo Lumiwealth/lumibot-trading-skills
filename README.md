@@ -2,6 +2,13 @@
 
 Free trading strategy skills for Claude Code, Codex and Cursor, built on [LumiBot](https://github.com/Lumiwealth/lumibot).
 
+The guides and `catalog.json` are generated from the same maintained skill source
+used by BotSpot's authoring agent. They are published together after privacy and
+parity checks; there is no separately edited public version. Installed native
+skills keep the version you installed until you update the package. Compatible BotSpot MCP server versions read the published catalog and
+refresh its content automatically; older servers retain their bundled version
+until their normal update.
+
 Ask your AI to build a trading bot, and these skills teach it how to do it right. It learns how to write a LumiBot strategy, backtest it, read the results, and avoid the mistakes that make backtests lie. They cover stocks, ETFs, options, crypto, futures and AI agents that trade.
 
 LumiBot is the open-source Python trading library from Lumiwealth. Docs: https://lumibot.lumiwealth.com
@@ -86,6 +93,7 @@ Running a bot with your own broker always needs your approval on botspot.trade f
 
 ```bash
 python3 tests/test_skills_layout.py
+python3 -m unittest discover -s tests
 ```
 
 ## License

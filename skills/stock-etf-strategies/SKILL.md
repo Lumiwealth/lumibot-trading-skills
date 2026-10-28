@@ -1,10 +1,14 @@
 ---
 name: stock-etf-strategies
+title: Stock and ETF Strategies in LumiBot
 description: Load before writing, editing, debugging or backtesting a LumiBot strategy that trades stocks or ETFs, including rotation, rebalancing, momentum, trend following, moving-average crossovers, breakouts, opening-range breakouts, mean reversion, RSI or Bollinger setups, and baskets, or when a stock backtest makes no trades. Covers universe choice, warmup history, cash-bounded sizing, fractional shares, rebalancing, market hours, gaps, benchmarks and BotSpot backtest workflow.
+visibility: public
 license: MIT
-metadata:
-  title: "Stock and ETF Strategies in LumiBot"
 ---
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
+For external clients, load guides with the BotSpot MCP `skills` tool (action=get, name=<skill>). Resource identifiers written as <skill>:references/<file> use name=<skill> and reference=references/<file>. Installed native clients can read the same local reference file. The following is shared authoring guidance; use the tools actually advertised by your client.
+
 # Stock and ETF Strategies in LumiBot
 
 This skill helps an AI agent write correct stock and ETF strategies with LumiBot

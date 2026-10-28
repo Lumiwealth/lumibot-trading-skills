@@ -1,3 +1,10 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
+---
+name: lumibot-entities
+description: Use when inspecting or editing LumiBot strategy code that creates assets, orders, positions, options, futures, or other entities.
+---
+
 Entities are classes that represent the main components of a trading strategy. They are used to define the assets, orders, and positions that the strategy will interact with. The following are the main entities that can be used in a strategy:
 
 class Asset:
@@ -253,7 +260,7 @@ Possible values for Asset.AssetType:
 - CRYPTO_FUTURE
 
 # For BitUnix and some other brokers, you can also use:
-asset.leverage = 10.0  # Set leverage for the asset. this will be used for futures trading.
+assset.leverage = 10.0  # Set leverage for the asset. this will be used for futures trading.
 
 2.	Order:
 

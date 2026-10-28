@@ -1,157 +1,102 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # AI Trading Teams
 
 Use this reference when the user asks for an AI trading team, AI investment
-committee, pod-style strategy, investor-style agent team, macro regime agent,
-sector pods, or any strategy where several AI roles specialize or debate before
-one trading decision.
+committee, pod-style strategy, named-investor agent team, macro agent, sector
+pod, or any strategy where several AI roles debate or specialize before a final
+trading decision.
 
-## Core contract
+## Core Contract
 
-Every AI-owned trading strategy follows "The core rules" in this skill's
-`SKILL.md`. In short:
+Every AI-owned trading strategy follows "AI trading team conventions" at the
+top of `SKILL.md`. In short: exactly one terminal trading and risk agent
+(`allow_trading=True`) with plain-language risk rules in its own prompt; at
+least one upstream non-trading researcher (`allow_trading=False`) that returns
+a bounded setup packet; agents passing summaries through `context`; no
+business-logic Python; built-in tools instead of strategy helpers; the model
+marked (default) in CURRENT AI MODELS unless the user picks another model. The trader is the sole order owner and
+must revalidate current positions, open orders, prices, and for options the
+exact option contracts and package pricing, before it acts. This file only adds
+team-specific shapes.
 
-- exactly one trading agent (`allow_trading=True`) that places the orders and
-  owns risk, with plain-language risk rules in its own prompt
-- at least one research agent, each with `allow_trading=False` set explicitly
-  (LumiBot defaults it to `True`)
-- agents hand work to each other only through their answers, passed in
-  `context`; `self.vars` may carry an answer forward to the next iteration
-- every agent is called every iteration, in order
-- no Python that fetches or parses data, filters, scores, sizes or places orders
-- built-in tools instead of strategy helpers
+- Build a real LumiBot AI-agent strategy, not a prose proposal.
+- Use AI roles for research, disagreement and critique; each role gets a crisp
+  prompt and a bounded evidence set.
+- The final trading agent must say which upstream advice it accepted or
+  rejected and why, so `agent_detail.parquet` is useful later.
+- Default AI decisions to daily and normally no more frequently than hourly for
+  intraday workflows. Gate agent calls to named decision windows. Before saving
+  an explicitly requested cadence below 10 minutes, quantify that a one-minute
+  US-session loop is about 390 cycles and at least 780 initial model calls for
+  the minimum two-agent topology, warn about credits, latency and provider
+  limits, and require explicit confirmation.
 
-Team-specific guidance:
+Clock scheduling surrounds the whole decision cycle, including for AI-only
+requests: run every upstream role and the terminal trader inside each requested
+window. A coarse `sleeptime` alone does not implement multiple named windows.
+Use native lifecycle scheduling or a clock-only check before the whole team;
+never inspect research or market data in Python to decide which role runs.
 
-- Build a real LumiBot strategy, not a prose proposal.
-- Give each role a crisp prompt and a bounded job.
-- The trading agent says which upstream advice it accepted or rejected and why,
-  so the per-agent backtest output is useful later.
-- Default to daily decisions; intraday teams normally no more often than
-  hourly. A one-minute US-session loop is about 390 cycles and, for even two
-  agents, at least 780 model calls per day. Explain the credit, latency and
-  rate-limit cost and get explicit confirmation before saving a cadence that
-  fast.
+## Recommended Team Shapes
 
-## Team shapes
+Reusable shapes, not hard-coded names:
 
-Reusable shapes, not fixed names:
+- Research pods: several non-trading agents specialize by asset class, sector,
+  regime, valuation, catalyst or risk.
+- Debate committee: bull, bear and neutral researchers, then a disagreement
+  agent that names conflicts and missing evidence.
+- Critic: a non-trading devil's advocate or "risk critic" that challenges
+  concentration, drawdown, leverage and liquidity. Its view is advice; risk
+  ownership stays with the trader.
+- Trader: one final trading-enabled agent (`portfolio_manager`,
+  `risk_trader`) that reads the upstream summaries plus live broker state,
+  applies its plain-language risk rules, and places the orders itself.
 
-- **Research pods:** several non-trading agents, each covering an asset class,
-  sector, regime, valuation view, catalyst or risk.
-- **Debate committee:** bull, bear and neutral researchers, then a
-  disagreement agent that names conflicts and missing evidence.
-- **Critic:** a non-trading devil's advocate that challenges concentration,
-  drawdown, leverage and liquidity. Its view is advice; the trader still owns
-  risk.
-- **Trader:** one final trading agent (`portfolio_manager`, `risk_trader`,
-  `trader`) that reads the upstream summaries plus live account state, applies
-  its risk rules and places the orders itself.
+For first builds keep the team small enough to validate: one to three
+researchers, an optional critic, one trader, a compact universe, a daily
+cadence and short prompts.
 
-For a first build keep the team small enough to validate quickly: one to three
-researchers, an optional critic, one trader, a compact universe, daily cadence
-and short prompts.
-
-## Example: debate committee
+## Agent-Owned Order Rule
 
 ```python
-from lumibot.strategies.strategy import Strategy
-
-UNIVERSE = "SPY, QQQ, IWM, TLT, GLD, SHV"
-
-
-class AIDebateCommitteeStrategy(Strategy):
-    def initialize(self):
-        self.sleeptime = "1D"
-        self.vars.last_decision = None
-
-        self.agents.create(
-            name="bull_researcher",
-            allow_trading=False,
-            system_prompt=(
-                f"Build the strongest evidence-based case for owning ETFs in: {UNIVERSE}. "
-                "Use prices, indicators, news and macro data. Return candidates, the "
-                "prices you observed, and the evidence. Never trade."
-            ),
-        )
-        self.agents.create(
-            name="bear_researcher",
-            allow_trading=False,
-            system_prompt=(
-                f"Build the strongest evidence-based case for caution in: {UNIVERSE}. "
-                "Name the risks, weak signals and missing evidence. Never trade."
-            ),
-        )
-        self.agents.create(
-            name="critic",
-            allow_trading=False,
-            system_prompt=(
-                "Compare the bull and bear cases. Name where they conflict, what "
-                "evidence is missing, and any concentration or drawdown concern. "
-                "Never trade."
-            ),
-        )
-        self.agents.create(
-            name="portfolio_manager",
-            allow_trading=True,
-            system_prompt=(
-                "You are the only agent that trades, and you own risk. Weigh the "
-                "research and the critic, then place or skip the orders yourself. "
-                f"Only trade {UNIVERSE}. Hold at least three of the ETFs when risk "
-                "is on. Never put more than 40% of the account in one ETF. Move to "
-                "SHV or cash when the research is weak or mixed. Say which advice "
-                "you accepted or rejected and why."
-            ),
-        )
-
-    def on_trading_iteration(self):
-        context = {
-            "current_datetime": self.get_datetime().isoformat(),
-            "previous_decision": self.vars.last_decision,
-        }
-        bull = self.agents["bull_researcher"].run(
-            task_prompt="Make today's bull case.", context=context
-        )
-        bear = self.agents["bear_researcher"].run(
-            task_prompt="Make today's bear case.", context=context
-        )
-        critique = self.agents["critic"].run(
-            task_prompt="Compare the two cases.",
-            context={**context, "bull": bull.summary, "bear": bear.summary},
-        )
-        decision = self.agents["portfolio_manager"].run(
-            task_prompt="Review the debate and the account, then rebalance or hold.",
-            context={
-                **context,
-                "bull": bull.summary,
-                "bear": bear.summary,
-                "critique": critique.summary,
-            },
-        )
-        self.vars.last_decision = decision.summary
+self.agents.create(
+    name="portfolio_manager",
+    model="<default model id from CURRENT AI MODELS>",
+    allow_trading=True,
+    system_prompt=(
+        "You are the only agent that trades, and you own risk. Weigh the research "
+        "and the critic, then place or skip the orders yourself. Independently refresh current "
+        "account state, positions and open orders immediately before acting; revalidate exact "
+        "contracts, executable prices, liquidity and risk. Preserve the requested atomic "
+        "structure. Inspect the actual returned order status and resulting positions before "
+        "claiming execution. Risk rules: hold "
+        "at least three of the ETFs when risk is on; never put more than 40% of the "
+        "account in one ETF; move to SHV or cash when the research is weak or mixed."
+    ),
+)
 ```
 
-Keep order placement agent-owned. Do not parse `result.summary` and submit the
-same order in Python afterward. That creates two execution paths and turns the
-AI team into commentary.
+Keep order placement agent-owned. Do not parse `result.summary` and submit the same order in Python afterward.
+That creates duplicate execution paths and turns the AI team into commentary.
 
-## Keys and secrets
+## Secret Requirements
 
-On BotSpot, AI strategies use BotSpot's managed AI in backtests and live bots,
-billed in BotSpot credits; no personal model provider key is needed. The keys a
-BotSpot run needs are exactly the ones its missing-secrets result names.
-Self-hosted LumiBot outside BotSpot needs the model provider's own key. For a
-Gemini model that key is named `GEMINI_API_KEY`. Never print raw key values.
+On BotSpot, every model in the CURRENT AI MODELS table runs through BotSpot's
+managed AI with BotSpot credits; a BotSpot backtest or bot never needs a
+personal model-provider key for it, whatever the provider prefix. The keys a
+BotSpot run needs are exactly the ones BotSpot's missing-secrets list names.
+Only self-hosted LumiBot outside BotSpot needs the model provider's own key,
+even if strategy code does not read it directly. When diagnosing such a run
+that uses a Gemini model, name its key `GEMINI_API_KEY`, not a "Google API key".
 
-## Diagnosing a team backtest
+## Backtest Diagnosis
 
-When an AI-team backtest fails or makes surprising trades:
+When an AI-agent backtest fails or returns surprising trades:
 
-- use `list_backtests` to find the run and `backtest_status` for its state and
-  attached saved-variable metadata (names only, never values);
-- read `get_backtest_logs` for provider errors, rate limits and runtime
-  failures;
-- read the per-agent artifact (for example `agent_detail.parquet`) with
-  `get_backtest_artifact` to see each role's output and the trader's reasoning;
-- check `agent_health` in the run settings before trusting the numbers;
-- do not conclude a key is invalid from a loose log text match, and never
-  disable or delete a user's saved keys on your own.
+- inspect `list_backtests` or `backtest_status` runtime secret metadata first;
+- verify which saved env-var set ids and key names were attached;
+- inspect hosted runtime logs logs for provider errors and runtime failures;
+- inspect `agent_detail` artifacts for role outputs and final trade reasoning;
+- do not infer invalid keys from regex-only log scans, and do not disable keys
+  automatically.

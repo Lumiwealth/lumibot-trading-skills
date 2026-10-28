@@ -1,10 +1,14 @@
 ---
 name: using-botspot-mcp
+title: Using the BotSpot MCP well
 description: Load first in any session connected to the BotSpot MCP. Explains what BotSpot does, which tools to call in what order to build, backtest, compare, share and deploy a LumiBot trading strategy, how sign-in works, and the mistakes that waste time.
+visibility: public
 license: MIT
-metadata:
-  title: "Using the BotSpot MCP well"
 ---
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
+For external clients, load guides with the BotSpot MCP `skills` tool (action=get, name=<skill>). Resource identifiers written as <skill>:references/<file> use name=<skill> and reference=references/<file>. Installed native clients can read the same local reference file. The following is shared authoring guidance; use the tools actually advertised by your client.
+
 # Using the BotSpot MCP well
 
 BotSpot (https://botspot.trade) builds, backtests and runs trading strategies written with LumiBot, the open-source Python trading library (https://github.com/Lumiwealth/lumibot, docs at https://lumibot.lumiwealth.com). Through this MCP you can write a strategy, backtest it on historical data, read the results, and, with the user's approval on botspot.trade, run it with their own broker.

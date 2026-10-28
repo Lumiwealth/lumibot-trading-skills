@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # LumiBot examples: AI agents
 
 Patterns for LumiBot AI agents: minimal agent, research plus trader team, bull/bear committee, built-in news tool, and a custom `@agent_tool`. Replace `<model id>` with the model the user picked (see `references/components-overview.md`, AI agents section, for model ids and keys). For the full design guide load the `lumibot-ai-agents` skill.

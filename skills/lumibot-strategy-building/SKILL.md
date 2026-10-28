@@ -1,405 +1,191 @@
 ---
 name: lumibot-strategy-building
+title: Building LumiBot Strategies on BotSpot
 description: Load this before writing, editing, fixing or backtesting any LumiBot trading strategy on BotSpot. It covers the full build workflow through the BotSpot MCP tools (create_strategy, get_file, patch_file, replace_file, start_backtest, backtest_status, logs and artifacts, revisions), strategy structure, cash-bounded sizing, order lifecycle and reconciliation, exits, data providers, backtest correctness checks and common mistakes.
+visibility: public
 license: MIT
-metadata:
-  title: "Building LumiBot Strategies on BotSpot"
 ---
-# Building LumiBot Strategies on BotSpot
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
-LumiBot is an open-source Python trading library
-(https://github.com/Lumiwealth/lumibot, docs https://lumibot.lumiwealth.com).
-BotSpot stores LumiBot strategies as versioned files, backtests them, and runs
-them live after the owner approves a deployment on botspot.trade.
+For external clients, load guides with the BotSpot MCP `skills` tool (action=get, name=<skill>). Resource identifiers written as <skill>:references/<file> use name=<skill> and reference=references/<file>. Installed native clients can read the same local reference file. The following is shared authoring guidance; use the tools actually advertised by your client.
 
-This is the main "how to build a strategy well" skill. Use it for new builds,
-substantial rewrites, bug fixes and behavior edits. Load companion skills for
-specific topics (with `skills` action=get, name=<skill>):
+# Strategy Building Core
 
-| Topic | Skill |
-|---|---|
-| Exact LumiBot methods, entities, lifecycle callbacks, examples | `lumibot-api-reference` |
-| Fast strategies, scanners, timed cancels and hedges | `fast-lumibot-strategies` |
-| Indicators (`self.indicators`) and chart output | `lumibot-indicators` |
-| AI-owned or hybrid strategies (`self.agents`) | `lumibot-ai-agents` |
-| Stock and ETF patterns (breakout, mean reversion, moving averages) | `stock-etf-strategies` |
-| Options (OptionsHelper, spreads, wheel, fees) | `options-strategies` |
-| Using the BotSpot MCP tools in general | `using-botspot-mcp` |
+Choose the decision owner before writing the first file. Ordinary hourly/daily
+new builds default to AI-owned decisions, even when the user describes exact
+indicators without saying AI. Load `lumibot-ai-agents`: exactly one agent may
+trade, research/planning agents cannot trade, and every configured agent runs
+each trading iteration. Preserve an explicit Python/hybrid choice and use the
+cadence/latency decision rules below for faster signals. A no-auto-backtest
+preference changes validation permission, not this architecture choice.
 
-References in this skill (load with `skills` action=get,
-name=`lumibot-strategy-building`, reference=<path>):
+For a new build, hasStrategy=false means no workspace exists. After the required
+research/plan, call create_strategy before get_file or list_files. Omit optional
+file selectors only once an attached or newly created workspace actually exists;
+an empty file inventory call cannot discover an uncreated workspace.
+Wait for successful workspace creation before issuing any dependent file call;
+`create_strategy` and `list_files`/`get_file` cannot share a parallel tool batch.
 
-| Reference | Load when |
-|---|---|
-| `references/editing-existing-strategies.md` | Patching saved code, bounded parameter edits, copying rules between strategies, fill-price or stale-value repairs |
-| `references/backtest-validation.md` | Choosing a test window, reading results, no-trade or failed runs, metric-target loops, correctness audit |
-| `references/scaffolds.md` | Choosing a first-version template for stocks, crypto, futures, options, AI or a sample bot |
-| `references/extended-hours-equities.md` | Pre-market, after-hours or overnight US stock trading, session guards, live quote freshness |
-| `references/crypto-strategies.md` | Crypto spot pairs, quote assets, crypto perpetual futures |
-| `references/futures-strategies.md` | Futures, continuous futures, session windows |
-| `references/order-operation-ownership.md` | Duplicate orders from competing callback, polling or fallback paths |
-| `references/order-quantity-accounting.md` and `references/order-quantity-example.py` | Partial or canceled replacements, late or repeated fills, overfills across attempts |
+Before starting validation, finish the saved-file readback and mark the actual
+implementation plan item completed. Then start the backtest; only its returned
+wait can complete the start item and put validation in waiting. Do not complete
+a later plan row while an earlier implementation row is still in progress.
+For a backtest of the current workspace's newest saved files, omit the optional
+revision selector so the tool resolves the current conversation revision. An
+explicit historical/different revision remains allowed when actually requested.
+Every saved file, including Rules, advances the revision; an earlier main.py
+save is not necessarily the newest complete workspace.
 
-Everything here is engineering guidance, not investment advice. Example symbols,
-thresholds and sizes are illustrations, not recommendations.
+## Final build handoff
 
----
+Use this order in the final handoff, even when validation is queued:
 
-# Part 1: The BotSpot build workflow
+1. State the selected decision owner AND why. For a fast Python/hybrid build:
+   "The signal/order path uses Python to avoid an AI model round trip and
+   per-call credit use." A statement that Python is deterministic or polling is
+   fast does not explain that choice.
+2. State the saved behavior verified in the latest readback, using its product
+   revision card rather than manually copied UUIDs.
+3. State the actual validation status and relevant feed/broker limitations.
+   Waiting for capacity is not a test result and does not replace the first line.
 
-## 1. Check the Marketplace before building
+Broker and scheduling latency are separate from AI model round-trip latency.
+The first handoff line must explain the decision owner, rather than substituting
+a general broker/feed timing disclaimer for the reason AI calls were avoided.
 
-For a new strategy request, first search existing published strategies with
-`marketplace_strategies` action=list and two to four plain keywords from the
-request (tickers, the rule, the data source). Skip this when the user asked to
-build from scratch, is editing an existing strategy, or already picked a
-listing.
+A new trading date resets only session counters for settled work. It does not
+prove that yesterday's order, package, position or hedge obligation is terminal.
+Retain and reconcile unresolved operations before clearing their identities or
+starting another session's entry; an overnight position cannot disappear from
+state because the calendar rolled over.
+Retention also needs a completion path: consume confirmed exit fills/flatness,
+retire the matching resolved package once, and allow the next eligible entry.
+Run pending entry/exit reconciliation before a daily-entry/reset eligibility
+return; a blocked reset must not make the code that resolves its blocker
+unreachable. Preserve both unresolved obligations and ordinary daily repetition.
 
-If a listing closely matches, read it with action=get and tell the user its
-name, its Marketplace link, one line on what it does, what the publisher shares,
-and any API key the user must supply. Offer two paths: copy it with
-`clone_strategy` (listingId, only when the listing allows cloning), or build
-their own version starting from its shared code (action=get_code, only when
-code is shared). Respect exactly what the publisher shared: never show, quote,
-paraphrase or guess code, rules, positions or trades a listing does not grant.
-If nothing fits, build normally.
+When the user explicitly requests historical/backtest-only behavior and forbids
+live orders, enforce that choice in the saved executable entrypoint and order
+path. Do not retain a live `Trader` fallback or claim live execution is disabled
+when the code still permits it. This scoped request does not remove live support
+from an ordinary strategy whose user authorized that capability.
 
-## 2. Decide who makes the trading decisions
 
-Before writing code, decide whether the user wants automation at all. If they
-only want to understand an account, research a trade or learn, help directly
-instead of creating a strategy.
+Use the actual declared file-tool schema. When strategyId and revisionId are required, copy both from the latest successful owned workspace result, including for Rules writes. A schema that permits the current attached target to resolve them remains supported; never invent or shorten either identifier.
 
-When automation is wanted, separate fast mechanical work (polling, order
-reconciliation, time windows) from the cadence of an intelligent decision:
 
-1. Decisions that react within seconds or happen more often than about hourly
-   fit Python ownership, or a hybrid. AI calls are slower and cost more.
-2. Frequent polling with slower judgment fits a hybrid: Python polls and
-   reconciles quickly and calls the AI only at decision windows.
-3. Hourly or slower judgment-based decisions can be AI-owned. Load
-   `lumibot-ai-agents` for that architecture.
-4. Respect an explicit user choice (Python, hybrid or frequent AI) after one
-   clear cost and latency note. Preserve an existing Python strategy unless the
-   user asks to convert it.
+Before file tools, resolve an existing owned strategy/revision or create the
+requested new workspace with create_strategy. An unbound new conversation has
+no files to list yet; list_files/get_file cannot discover an unspecified target.
+After start_backtest, copy the COMPLETE returned externalWaitId unchanged into
+record_external_wait_in_plan. It is distinct from backtestId; never reconstruct
+it by combining UUID segments. Bind that exact returned wait to existing plan
+item identities. If the plan snapshot is stale, refresh it before mutating.
 
-Exact thresholds and rules do not by themselves force Python; an AI-owned
-strategy can follow exact rules too. The rest of this skill focuses on
-Python-owned (rules-based) code and the parts shared by every strategy.
 
-## 3. Is the request specific enough to build?
+Before saving files, distinguish an empty file from an absent file. BotSpot's
+neutral starter already contains `main.py` and an empty `requirements.txt`.
+Read and replace that existing requirements file with its fresh edit handle;
+never use `create_file` for it. Discover any other missing path before creating
+it. After saving one file, refresh the next file's read/handle from the newest
+revision rather than reusing a stale cross-file handle.
 
-Build when the user gives a concrete supported market or universe plus enough
-intent to pick a first version (style, entry idea, risk posture, timeframe or
-validation goal). Choose simple defaults for unstated details and disclose them
-after building. If the target market is missing, ask one short question. Do not
-send a long intake form. Critique, advice or "what do you think" is not a build
-request; answer it conversationally.
 
-Market support to keep in mind:
+## Preserve the execution contract in saved code
 
-- Supported: US stocks and ETFs, US stock, ETF and index options, US futures
-  and continuous futures, spot crypto pairs (for example BTC/USD, ETH/USD,
-  BTC/USDT, BTC/EUR) and crypto perpetual futures where a broker supports them.
-- Not supported as written: spot forex pairs (EURUSD, USDJPY), spot gold or
-  silver (XAUUSD, XAGUSD), and Indian index options. Ask whether to switch to a
-  supported proxy such as GLD, SLV or gold and silver futures. Never silently
-  drop part of a mixed list or substitute SPY or QQQ.
-- Nasdaq 100, US100 or NAS100 futures requests map to continuous `NQ` or
-  `MNQ`, not QQQ, unless the user asks for an ETF.
+An explicitly initial-capital budget is a stable baseline: persist the first
+verified portfolio value in `self.vars`, then reuse it across iterations and
+restarts. Capture that anchor at the first point account value is known, BEFORE
+any independent price/history/quote check can return early. A missing price must
+not postpone the baseline until a later, changed account value. Use an explicit
+missing test, not a truthiness fallback that overwrites an existing baseline.
+Do not substitute the changing current portfolio value. Current-value sizing
+remains appropriate when that is what the user's Rules specify.
 
-## 4. First build: the tool sequence
+On an explicit repair request, an observed exception from a public initial-
+budget property can be handled with this same persistent starting-value anchor,
+using the original configured budget or first verified public account value.
+Preserve the allocation rule and never invent a balance. A current framework
+reference defining the property does not prove its backing value was available
+in the failing deployed lifecycle. Keep that root cause uncertain while
+preparing the narrow compatibility repair. A broker reconnect requirement is
+separate: save/read back the safe revision and prepare the same deployment's
+owner approval using its authoritative credential state, without guessing a
+credential or claiming the prepared repair is already running.
 
-1. `create_strategy` with a human-readable name (under 60 characters, natural
-   words, not a slug) and a description. It returns a workspace with a
-   neutral starter `main.py` and an empty `requirements.txt`, plus a files
-   manifest. Trust that manifest instead of rediscovering the starter files.
-2. `get_file` for `main.py` (and `requirements.txt` if you will need it). Each
-   read returns an `editHandle`.
-3. `replace_file` with the complete new `main.py`. The starter is boilerplate;
-   do not patch your strategy into it. Send `path`, `editHandle` and the full
-   `content` together. A successful write returns a new revision.
-4. If the code imports third-party packages the platform does not provide,
-   `replace_file` on `requirements.txt` with exact pins (`package==1.2.3`).
-   Use `replace_file`, not `create_file`, because the file already exists.
-5. `get_file` again on the newest revision and audit the saved code (see the
-   pre-backtest checklist below). Fix real defects with another write and
-   readback. Do not restyle working code before the first backtest has run;
-   the backtest is the check.
-6. `start_backtest` on the newest revision with a sensible window (see Part 1
-   section 7). It is asynchronous and returns a backtest id.
-7. `backtest_status` with that id. Summarize progress instead of polling in a
-   tight loop. When terminal, inspect results (section 8).
+Give entry/submission latches the lifetime required by the Rules and the owned
+order lifecycle. A latch used to prevent duplicates must not silently disable
+later eligible sessions or entries. Re-arm only after the relevant terminal
+orders, positions and hedge obligations reconcile; preserve an explicit one-time
+strategy rule when the user actually requested one. Trace the reset caller in
+the saved code: setting `entry_submitted=True` with no reachable re-arm path is
+a permanent shutdown, even if the smoke window only contains one trade. For a
+recurrent Rule, reconcile its owned terminal order and flat/closed position,
+then let the next eligible session or signal evaluate again. A per-session
+allowance uses the strategy's actual trading-session key, not a lifetime flag.
 
-A file write only succeeded if the tool returned a new revision. An error such
-as an invalid or stale edit handle means nothing was saved: call `get_file`
-again for a fresh handle and retry. Never report a change as saved, or
-start a backtest, on the strength of a failed write.
+A trading AI's own saved instructions must verify current account state,
+positions, open orders, exact contract identities, executable package prices and
+liquidity immediately before acting. Adviser output and a separate Rules file
+do not perform that verification. When the requested structure is defined-risk
+and atomic, preserve that submission contract and verify its returned result
+before describing execution. Keep these instructions with the trading owner;
+research agents advise without submitting orders.
 
-## 5. Editing an existing strategy
+Explain an architecture recommendation against the requested cadence: model
+calls add variable latency and credit cost to a signal path. Deterministic
+rules can use ordinary Python; discretionary reasoning can use AI with an
+appropriate cadence. In the final recommendation, connect that choice to the
+user's deadline: Python avoids a model round trip on a fixed-rule signal path;
+full AI reasoning adds variable response latency and per-cycle credit use.
+Quote/broker delay is a separate limitation, not that architecture explanation.
+Preserve an explicit AI-only or fixed-rules choice.
 
-- Always read the saved file with `get_file` first. Do not edit from memory or
-  from an earlier summary.
-- Stay on the strategy the user means. If they name a different strategy than
-  the one in context, resolve it with `list_strategies` and `list_revisions`
-  and pass that strategy's ids explicitly. Use `switch_active_strategy` or
-  `set_strategy_revision` when the conversation should point at another
-  strategy or an older revision.
-- For a small targeted change, use one `patch_file` call holding every
-  non-overlapping operation for that request. Copy `oldText` byte for byte from
-  the latest readback, including whitespace, and include enough surrounding
-  context to make it unique. For a broad rewrite, use `replace_file`.
-- Replace stale behavior; do not append a competing line after it. The readback
-  must show the old behavior is gone.
-- Read back the saved file once after the edit and check every requested change
-  plus the behavior that must stay the same.
-- Do not start a backtest just because an edit was saved, unless the user asked
-  for one or this is the first validation of a new build.
+## Plan transitions during creation and repair
 
-`references/editing-existing-strategies.md` has the detailed rules: ambiguous
-anchors, preserving sizing when a shared parameter changes, copying rules from
-one strategy to another without copying its identity, credential identity, and
-fill-price source repairs.
+Use the exact returned current item IDs and positions, refreshing get_active_plan
+when the visible snapshot is stale. update_plan_item(s) changes existing rows;
+it cannot append a future position. Never reopen a completed historical attempt.
+Before appending an in_progress replacement, resolve every earlier unresolved
+row with its true satisfied/partial/unsuccessful outcome. If a required step
+cannot yet be done, preserve that gap and link the actual follow-up rather than
+marking it successful. Use replace_plan_items with the full visible list for
+an atomic transition, or resolve the current row then add_plan_item with a nested
+item object. Copy the returned new identity before updating it. Creation,
+saving, validation start and terminal validation are different outcomes.
 
-## 6. Identifiers, revisions and supporting files
+## Cash-bounded stock entry and complete exits
 
-- Strategy, revision and backtest ids are opaque. Copy them exactly from a tool
-  result; never retype, shorten or rebuild them. A revision id is not a
-  backtest id, and neither is a deployment id.
-- Every successful write creates a new immutable revision. Use the newest
-  revision id for the next read and for `start_backtest`. Old revisions remain
-  available through `list_revisions`.
-- Many file tools default to the conversation's current strategy when you omit
-  `strategyId` and `revisionId`. Pass explicit ids only for a different
-  strategy or a specific historical revision.
-- `main.py` and `requirements.txt` form one executable contract. After any
-  import change, check every third-party import against the requirements file.
-  Do not list the standard library, LumiBot, or packages the platform already
-  provides. Never make a required import optional just to dodge a dependency
-  error.
-- The strategy must be self-contained: one file, no local config files that
-  will not exist at runtime.
-- If the strategy has a `rules.json` (BotSpot's saved trading Rules), keep it
-  aligned with code when you change trading behavior. Only read it after
-  `list_files` shows it exists; do not probe for it.
+For new Python cash-only entries or an authorized execution repair, use the complete supported pattern below. Preserve an explicitly requested order policy and unrelated behavior in a narrow edit; do not convert an existing strategy merely to copy an example. Disclose the chosen execution-price and fee assumptions.
 
-## 7. Running a backtest
+- A submitted sell is not available proceeds. Reconcile confirmed fills, remaining positions and refreshed cash before spending its proceeds; an iteration boundary alone does not confirm settlement.
 
-- Window: do not hardcode backtest start and end dates in the script. The
-  `start_backtest` call supplies the window. For a first test, use a short
-  window (about a week of trading for intraday or frequent strategies) and
-  lengthen it when the rules need it: a daily 20/50 moving-average cross may
-  need one to three months to fire; monthly rebalances need several months.
-  Minute data history is commonly limited to roughly the last two years, so
-  keep minute-level windows inside that.
-- Duration requests: "backtest it for a year" is a window for
-  `start_backtest`, not a request to change `sleeptime` or lookbacks.
-- Data provider: by default the backtest uses BotSpot Auto (`botspot_auto`),
-  which routes each asset class to a managed source. MCP clients outside the
-  BotSpot chat pass `dataProvider` (for example `alpaca` or `polygon`) on
-  `start_backtest` to choose another source. Options data availability changes
-  over time; read the `start_backtest` description and any returned error code
-  for the current options route. Typical alternatives are the user's connected
-  Alpaca account or their own Polygon key.
-- In strategy code keep `datasource_class=None` so the environment chooses the
-  provider. Never hardcode broker or data credentials in strategy code.
-- Errors are information: `DATA_ACCESS_REQUIRED` means the user needs to unlock
-  data access, not that you should switch providers silently.
-  `DATA_PROVIDER_UNAVAILABLE` or an options-data-source error means no
-  backtest started; tell the user and offer the listed alternatives.
-- A start that returns a failure is repair feedback: fix and retry, do not wait
-  on a backtest that never started.
+- A target allocation is not spendable cash. For a rebalance, retain the target and outstanding order identities until fills and actual positions reconcile. A weekly/monthly signal schedules new targets; it must not prevent finishing an already accepted rebalance between signal dates. Submit reductions first, then calculate remaining buys from confirmed available cash, existing holdings and still-active orders without counting the same reservation twice. Include fees and execution-price movement: spending every dollar at an earlier signal close can borrow at the eventual fill. Use supported price-bounded execution when an unbounded market fill cannot respect the cash ceiling. Preserve the user's weights, universe and cadence; do not hide an execution shortfall by changing their allocation or enabling margin.
 
-## 8. Reading results and proving correctness
+- Before marking allocation/sizing Rules verified, inspect the executed run's minimum cash, fees, order lifecycle and remaining positions with the available artifact tools. Successful completion, positive returns or a code-only Rules review cannot establish cash correctness. Negative cash without authorized borrowing is a mismatch to investigate and repair on the saved revision; do not call that Rule PASS or silently add a deposit.
 
-Use one backtest id consistently for every log and artifact call in an answer.
+For an unleveraged stock/ETF strategy, a prior signal close is not the next
+market fill price. Even a fee allowance or small cash buffer cannot guarantee
+that a market order fits cash after a gap. Use an execution price bound when
+appropriate, or a documented broker-native cash amount order if supported.
+Do not silently change an explicitly requested market-order policy. Disclose a
+chosen limit-entry policy and its unfilled-order risk; never use a future close.
 
-- `get_backtest_logs` for errors, tracebacks, order and fill lines and "why
-  did it not trade". Logs are the first evidence for a failed or no-trade run.
-- `list_backtests` (includeArtifacts=true) or `get_backtest_artifact` to see
-  which artifacts exist (trades, stats, indicators, tearsheet) and their
-  schema, then `query_csv` with SQL against one artifact.
-- `get_backtest_visuals` for tearsheet and chart links to show the user.
-
-A completed status and positive return do not prove the strategy is correct.
-Before calling an unleveraged strategy correct, check:
-
-1. Minimum cash during the run. Negative cash without intended margin is a
-   bug to fix, never something to hide with `adjust_cash` or fake deposits.
-2. Fees actually charged and that they match the configured fee model.
-3. The order lifecycle: submitted, filled, partially filled, canceled.
-4. Positions left open at the end, and whether exits fired when they should.
-5. Every user rule that a backtest cannot evaluate (for example a live quote
-   age limit) is named in your answer along with what the backtest does instead.
-
-A run that produced trades but ended in a failed status is still failed;
-diagnose the failure. `references/backtest-validation.md` covers no-trade
-diagnosis, rescue rules and metric-target loops.
-
-## 9. Never weaken the user's rules to get a trade
-
-Implement the user's rules exactly. Technical repairs that keep intent are fine
-(API fixes, warmup history, asset construction, order plumbing, error
-handling). Changes to signals, thresholds, cadence, universe, sizing, risk or
-option structure need the user's approval: propose the exact change and wait.
-
-Never add fake fills, dummy orders, backtest-only branches or a simplified
-substitute just to show a trade. Never broaden an exact date, symbol, quantity
-or eligibility boundary to force a fill. A zero-trade result under strict rules
-is evidence to explain, not a reason to rewrite the strategy.
-
-Validation goals ("make sure it trades at least once") are acceptance checks,
-not trading instructions. Never code an order whose only purpose is to satisfy
-a validation target.
-
-When two of the user's rules conflict only in an edge case, apply the
-risk-reducing reading (exits, stops and forced closes win over entry filters)
-and tell the user.
-
-## 10. Deploying
-
-`start_deployment` prepares a deployment for the owner's review. It does not
-start a bot or place trades by itself. The owner selects the broker account and
-approves on botspot.trade; after approval the bot can place real-money trades.
-Never ask for secret values in chat; missing variables are entered through the
-secure cards the readiness check returns. Saved API keys for data or AI services
-are managed with `saved_env_vars`. A backtest is not a substitute for a
-deployment the user asked for, and a deployment is not a way to place a one-off
-trade.
-
----
-
-# Part 2: Writing the strategy code
-
-## 11. File shape
-
-A complete, runnable `main.py` has imports, one `Strategy` subclass, a single
-`parameters` dict, lifecycle methods and the standard `__main__` harness.
+This complete example submits a whole-share DAY limit order within a verified
+cash budget and configured fee upper bound. Supply a valid exchange price/tick,
+fee rate and total fixed-fee bound for the entry. Do not invent zero fees.
+`spendable_cash` already reflects the requested allocation and unresolved buy
+commitments not yet deducted by the broker; do not double-reserve an amount the
+broker has already deducted. Unconfirmed sell proceeds are not spendable cash.
+Reconcile existing orders for this asset before calling it. The example does
+not own signal conditions, allocation decisions or the order lifecycle.
 
 ```python
-from lumibot.strategies.strategy import Strategy
-from lumibot.traders import Trader
-from lumibot.entities import Asset, Order, TradingFee
-from lumibot.credentials import IS_BACKTESTING
-
 from decimal import Decimal, InvalidOperation, ROUND_FLOOR
-
-
-class RsiPullbackStrategy(Strategy):
-    """Buys a liquid ETF after a short-term pullback and exits on recovery or stop.
-
-    Illustration only, not a recommendation.
-    """
-
-    parameters = {
-        "symbol": "SPY",
-        "rsi_length": 14,
-        "rsi_entry": 35,
-        "rsi_exit": 60,
-        "stop_pct": 0.05,
-        "cash_fraction": 0.95,
-        "limit_buffer_pct": 0.002,
-        "percent_fee": 0.001,
-    }
-
-    def initialize(self):
-        self.sleeptime = "1D"
-        self.vars.asset = Asset(self.parameters["symbol"], Asset.AssetType.STOCK)
-        self.vars.entry_price = None
-
-    def on_trading_iteration(self):
-        asset = self.vars.asset
-        p = self.parameters
-
-        bars = self.get_historical_prices(asset, 30, "day")
-        if bars is None or bars.df is None or bars.df.empty:
-            self.log_message(f"{asset.symbol}: no bars yet, skipping.", color="yellow")
-            return
-        df = bars.df[bars.df.index <= self.get_datetime()]
-        if df.empty:
-            self.log_message(f"{asset.symbol}: no bars at or before now, skipping.", color="yellow")
-            return
-        last = df.iloc[-1]
-        close = float(last["close"])
-        self.add_ohlc(asset.symbol, open=float(last["open"]), high=float(last["high"]),
-                      low=float(last["low"]), close=close, dt=df.index[-1], asset=asset)
-
-        rsi = self.indicators.rsi(asset, timestep="day", length=p["rsi_length"])
-        if rsi is None or rsi != rsi:  # None or NaN while warming up
-            self.log_message(f"{asset.symbol}: RSI not ready, skipping.", color="yellow")
-            return
-        self.add_line("RSI", float(rsi), plot_name="RSI")
-
-        active = [o for o in self.get_orders() if o.asset == asset and o.is_active()]
-        position = self.get_position(asset)
-        held = position is not None and position.quantity > 0
-
-        # Exits first: a pending entry must never block a required exit.
-        if held:
-            entry = self.vars.entry_price
-            stop_hit = entry is not None and close <= entry * (1 - p["stop_pct"])
-            if rsi >= p["rsi_exit"] or stop_hit:
-                working_sells = [o for o in active if o.side == Order.OrderSide.SELL]
-                if working_sells:
-                    self.log_message(f"{asset.symbol}: exit already working, waiting for it to resolve.")
-                    return
-                for o in active:  # a leftover buy must not block the exit
-                    self.cancel_order(o)
-                reason = "stop" if stop_hit else "RSI recovery"
-                self.log_message(f"{asset.symbol}: exit on {reason}, RSI={rsi:.1f}, close={close:.2f}.")
-                self.close_position(asset)
-                self.add_marker("Exit", close, color="red", symbol="arrow-down", asset=asset)
-            else:
-                self.log_message(f"{asset.symbol}: holding, RSI={rsi:.1f}.")
-            return
-
-        if active:
-            self.log_message(f"{asset.symbol}: {len(active)} order(s) still working, no new entry.")
-            return
-        if rsi > p["rsi_entry"]:
-            self.log_message(f"{asset.symbol}: no entry, RSI={rsi:.1f} above {p['rsi_entry']}.")
-            return
-
-        cash = self.get_cash()
-        if cash is None:
-            self.log_message("Cash unavailable, skipping sizing.", color="red")
-            return
-        limit_price = round(close * (1 + p["limit_buffer_pct"]), 2)
-        order = submit_cash_bounded_entry(
-            self, asset,
-            spendable_cash=cash * p["cash_fraction"],
-            limit_price=limit_price,
-            percent_fee=p["percent_fee"],
-            fixed_fee_bound=0,
-        )
-        if order is not None:
-            self.log_message(f"{asset.symbol}: entry submitted at limit {limit_price}, RSI={rsi:.1f}.")
-            self.add_marker("Entry signal", close, color="green", symbol="arrow-up", asset=asset)
-
-    def on_filled_order(self, position, order, price, quantity, multiplier):
-        # Position state comes from confirmed fills, not from submission.
-        if order.asset == self.vars.asset:
-            if order.side == Order.OrderSide.BUY:
-                self.vars.entry_price = float(price)
-            elif position is None or position.quantity == 0:
-                self.vars.entry_price = None
 
 
 def submit_cash_bounded_entry(strategy, asset, *, spendable_cash, limit_price,
                               percent_fee, fixed_fee_bound):
-    """Submit a whole-share DAY limit buy that fits cash after fees.
-
-    Args:
-        strategy: The running Strategy.
-        asset: The stock or ETF Asset to buy.
-        spendable_cash: Budget for this entry, already net of other commitments.
-        limit_price: Highest acceptable fill price.
-        percent_fee: Fee rate as a fraction of order value.
-        fixed_fee_bound: Upper bound on fixed fees for the order.
-
-    Returns:
-        The submitted Order, or None when nothing fits or inputs are invalid.
-    """
     try:
         balance, budget, price, fee_rate, fixed_fee = (
             Decimal(str(value)) for value in (
@@ -407,299 +193,200 @@ def submit_cash_bounded_entry(strategy, asset, *, spendable_cash, limit_price,
                 percent_fee, fixed_fee_bound,
             )
         )
-        if (not all(v.is_finite() for v in (balance, budget, price, fee_rate, fixed_fee))
+        if (not all(value.is_finite() for value in (balance, budget, price, fee_rate, fixed_fee))
                 or price <= 0 or fee_rate < 0 or fixed_fee < 0):
             raise ValueError("Invalid cash, price or fee evidence")
     except (InvalidOperation, TypeError, ValueError):
-        strategy.log_message("Entry not submitted: cash, price or fee evidence is invalid.", color="red")
+        strategy.log_message("Entry not submitted: cash, price or fee evidence is unavailable or invalid.")
         return None
     available = min(balance, budget)
     quantity = int(((available - fixed_fee) / (price * (1 + fee_rate))).to_integral_value(rounding=ROUND_FLOOR))
     if quantity <= 0:
         return None
-    order = strategy.create_order(asset, quantity, Order.OrderSide.BUY,
-                                  limit_price=float(price), time_in_force="day")
+    order = strategy.create_order(asset, quantity, "buy", limit_price=float(price), time_in_force="day")
     return strategy.submit_order(order)
 
 
-if __name__ == "__main__":
-    if IS_BACKTESTING:
-        fee = TradingFee(percent_fee=0.001)
-        RsiPullbackStrategy.backtest(
-            datasource_class=None,
-            benchmark_asset=Asset("SPY", Asset.AssetType.STOCK),
-            buy_trading_fees=[fee],
-            sell_trading_fees=[fee],
-            quote_asset=Asset("USD", Asset.AssetType.FOREX),
-        )
-    else:
-        trader = Trader()
-        trader.add_strategy(RsiPullbackStrategy(quote_asset=Asset("USD", Asset.AssetType.FOREX)))
-        trader.run_all()
+def submit_full_exit(strategy, asset, *, unresolved_orders):
+    if unresolved_orders:
+        return None
+    return strategy.close_position(asset)
 ```
 
-Check exact signatures in `lumibot-api-reference` when in doubt. Do not invent
-methods because they sound plausible.
+Keep unfilled and partially filled order IDs until their state and remaining
+position are reconciled. A cancel request, `is_active() == False`, or a submitted
+exit does not establish completion. Preserve accepted exit intent across a
+rejection, partial fill or restart; reconcile the actual remaining quantity
+before another submission. Scope this to the affected risk unit, not unrelated
+symbols. For deadlines and callbacks, use `lumibot-api-reference` resource
+`references/fast-order-management.md`. For a duplicate-order repair, load this
+skill's `references/order-operation-ownership.md` before editing. Trace every
+callback, polling, fallback and queue continuation path, and repair their shared
+preparation/publication/completion owner. Preserve valid remaining legs and the
+next independent entry; a callback-only guard or a lock only in submit_order
+leaves queued duplicate work alive. Read back the complete causal repair.
 
-## 12. Hard rules (each of these has broken real backtests)
+For partial/canceled hedge replacements or late/repeated executions, load this
+skill's `references/order-quantity-accounting.md` and
+`references/order-quantity-example.py` before editing. Track the original
+entry's obligation across ALL attempts, including retired orders; an account
+position is not proof of this entry's executed quantity. Newly reported old
+fills can require canceling and resizing a live replacement. Preserve the next
+independent entry and every unrelated trading policy.
 
-- Never use `from __future__ import annotations` or any future import. It can
-  stop the strategy from starting once files are patched.
-- Never assign arbitrary attributes on `self` (`self.name`, `self.asset`,
-  `self.symbol`, `self.quote_asset`). They can collide with LumiBot internals.
-  Use `self.vars` for state that must persist across iterations and restarts,
-  and local variables for temporary values.
-- Do not define helpers with private names that look like framework state
-  (`_portfolio_value`, `_cash`, `_positions`, `_orders`, `_broker`,
-  `_last_price`, `_strategy`). A collision produces errors such as
-  "'float' object is not callable". Use clearly strategy-local names such as
-  `calculate_target_weights`.
-- Never call `datetime.now()`. Use `self.get_datetime()` so backtests see
-  simulated time.
-- Keep all parameters in one `parameters` dict at the top of the class. Do not
-  redefine them in the `__main__` block.
-- Do not pass `exchange=` or `currency=` to `Asset(...)`; `Asset` does not
-  accept them.
-- Use `self.create_order(...)` plus `self.submit_order(order)`. Do not use
-  convenience calls like `self.buy(...)` or `self.sell(...)`.
-- Stocks and ETFs use buy and sell sides (sell also closes a long). Option
-  opening and closing sides apply only to option contracts.
-- Default `self.sleeptime = "1D"` unless the user asks for intraday trading or
-  a specific cadence. Do not silently default to minutes or seconds.
-- Avoid blocking sleeps in normal strategy logic; check elapsed time on the
-  next iteration instead. Short `self.sleep(1, process_pending_orders=True)`
-  waits are for tight order-management loops only (see
-  `fast-lumibot-strategies`).
-- Avoid broad `try/except` that hides errors. When you catch, log the error.
-- `self.log_message()` colors are limited to white, red, green, blue and
-  yellow.
-- Read API keys for outside services with `os.getenv("MY_SERVICE_API_KEY")`
-  and treat a missing key as `None` with a clear log. Never default to a fake
-  string like "your_api_key_here".
-- Strategy code is broker-agnostic. Never read broker credentials, call broker
-  SDKs or REST APIs directly, or branch on a broker name for ordinary logic.
-  The platform supplies the broker connection.
-- Write only working code. No pseudo-code, demo stubs or "for demonstration"
-  branches.
-- Do not compute conditional expressions inside f-string format specs; compute
-  the display value first.
-- Do not use `self.first_iteration` unless the user really needs a one-time
-  action; most strategies do not.
-- `tearsheet_custom_metrics(...)` is rare-use only, for strategy-specific
-  summary rows the user asked for.
+After several writes, use the LAST successful mutation/readback as the saved
+revision. Report the saved behavior and use the product's structured revision
+card for its identity. Omit manually transcribed revision UUIDs and display
+versions from the final prose; an earlier base or intermediate revision is not
+the saved result. Copy exact returned IDs only where a tool requires them.
+If a text patch fails because its old fragment is missing, inspect the current
+saved method. The desired behavior may already exist from an earlier write.
+Keep that verified revision if so; otherwise repair the missing requirement
+using current unique context. Do not claim a failed patch itself was saved.
 
-## 13. Sizing and cash
+The full-exit helper deliberately delegates quantity and closing side to the
+supported API; never replace a fractional position with `int(position.quantity)`.
 
-Default posture: invest available cash with executable, cash-aware sizing,
-unless the user specifies otherwise. That never authorizes negative cash,
-silent leverage or spending proceeds you do not have yet.
+Before claiming an unleveraged backtest is correct, inspect its actual minimum
+cash, submitted orders, fills and remaining positions. Positive ending cash and
+a completed engine status do not excuse an earlier overdraft or abandoned exit.
+Repair and retest the same requested rules; never mask debt with `adjust_cash`,
+fake deposits or a changed signal. Inspect the returned artifact inventory and
+schema before claiming a required historical input is missing. These Python
+examples are for fixed-rule strategies, not controllers around AI-owned trading.
 
-- `get_cash()` and `get_portfolio_value()` can return `None` when a live
-  balance refresh fails. Log it and skip sizing; never treat `None` as zero.
-- A prior close is not the next fill price. A gap can make a market order cost
-  more than the cash you sized it with. Use a limit price within budget (as in
-  `submit_cash_bounded_entry` above), a supported broker cash-amount order, or a
-  clear buffer, and disclose the choice and its unfilled-order risk. Do not
-  silently change an order type the user explicitly requested.
-- Include fees in the sizing. Do not assume zero fees.
-- A submitted sell is not cash. Spend its proceeds only after the fill is
-  confirmed and cash has refreshed.
-- A target allocation is not spendable cash. For rebalances: submit reductions
-  first, then size buys from confirmed cash, current holdings and still-working
-  orders, without counting the same reservation twice. A weekly or monthly
-  signal schedules new targets but must not stop the strategy from finishing an
-  already accepted rebalance between signal dates. Keep the user's weights and
-  cadence; do not hide an execution shortfall by changing their allocation or
-  enabling margin. LumiBot's drift rebalancer component (see
-  `lumibot-api-reference`) handles many portfolio-rebalance requests.
-- Whole shares for most stock sizing; crypto and some brokers allow fractions.
-  Never truncate a fractional position with `int(position.quantity)` when
-  closing it; use `self.close_position(asset)`.
-- Options are priced per share with a 100 multiplier: a 1.50 premium costs
-  about 150 per contract. See `options-strategies`.
-- Use `deposit_cash()`, `withdraw_cash()` and `adjust_cash()` only for real,
-  intended cash flows, and `configure_cash_financing()` or
-  `set_cash_financing_rates()` for intended margin or interest modeling. Never
-  use them to mask an overdraft.
-- Default fee models for backtests: stocks `TradingFee(percent_fee=0.001)`;
-  options `TradingFee(per_contract_fee=0.65)`; futures
-  `TradingFee(per_contract_fee=0.85)` (micros about 0.50). Never use
-  `flat_fee` for options or futures; it charges once per order regardless of
-  contract count.
-- If the user gives a starting budget, pass it as `budget=` to the backtest.
+The conversation already has a data-provider default. Do not call
+`set_data_provider` merely to select or reselect `botspot_auto`. Call it only
+when the user explicitly requests a different provider or a tool result proves
+that the configured provider must change. Provider selection is not a
+first-build prerequisite.
 
-## 14. Orders, lifecycle and reconciliation
+After `start_backtest` returns a real `externalWaitId`, call
+`record_external_wait_in_plan` before any `update_plan_item`,
+`replace_plan_items`, status poll, retry, or assistant text. Do not try to mark
+an item waiting directly. Pass the returned `externalWaitId` with the plan
+targets; omit optional external/revision identity assertions. The helper
+resolves and validates the exact backtest and revision from the owned stored wait.
+When the plan has separate launch and result-review rows, pass BOTH selectors:
+`currentItemTarget` is the unfinished launch row, `waitingItemTarget` is the
+later result-review row. The helper completes launch and waits on review in one
+mutation. For one combined launch/review row, use that same row for both targets.
+Copy selector objects from the latest active plan; do not leave an earlier launch
+row pending while trying to attach the wait only to a later review row.
 
-- Open orders: filter `self.get_orders()` by the exact asset or option
-  contract and by active status (`Order.ACTIVE_STATUSES` or
-  `order.is_active()`). Filled, canceled, rejected, expired or error orders must
-  not block new entries.
-- Track the identifier of each order you submit and check it with
-  `self.get_order(order.identifier)`. Broad order lists can lag briefly after a
-  submit.
-- Submission is not a fill. Set entry price, stops, targets, counters and
-  "position held" flags only from confirmed fills (`on_filled_order` or a
-  refreshed filled order), never in the line after `submit_order`. Apply the
-  same rule to exits: do not clear position state because a sell was
-  submitted.
-- `on_filled_order` is helpful but not guaranteed. Verify live state with
-  `self.get_positions()` before clearing position or order state. Note that
-  cash appears as a USD position in `get_positions()`.
-- A cancel request is not completion. A cancel-pending order can still fill.
-  Keep it in duplicate blocking until the broker confirms a terminal state,
-  then reconcile its cumulative fills before replacing it.
-- Keep unfilled and partially filled order ids until their state and the
-  remaining position are reconciled. Preserve an accepted exit intent across a
-  rejection, partial fill or restart, and resize it against the actual
-  remaining quantity. Scope this to the affected asset, not unrelated symbols.
-- No blind retry after an uncertain submit result. Reconcile first.
-- Brackets, OCO and OTO: set `order_class=Order.OrderClass.BRACKET` (or OCO,
-  OTO) with a valid `order_type` such as MARKET or LIMIT, and use
-  `secondary_limit_price` and `secondary_stop_price` (optionally
-  `secondary_stop_limit_price`). Do not use the deprecated `take_profit_price`
-  or `stop_loss_price` with `limit_price`.
-- When several paths (fill callback, polling, fallback, queue continuation)
-  can submit for the same obligation, load
-  `references/order-operation-ownership.md`. For partial or canceled
-  replacements and late fills, load `references/order-quantity-accounting.md`
-  and `references/order-quantity-example.py`. Timed cancels and fast hedges
-  belong to `fast-lumibot-strategies`.
+Use this as the main direct-edit strategy-building skill for new BotSpot strategies and substantial strategy rewrites.
 
-## 15. Exits and protective stops
+## Marketplace First
 
-- Evaluate exits and risk before entry-only duplicate checks. A pending entry
-  must never stop a held position from exiting.
-- Keep each rule's timing. A daily entry signal does not make a protective stop
-  a once-a-day close check. When protection must work between iterations, use
-  a supported stop order anchored to the confirmed entry fill and the remaining
-  held quantity.
-- Distinguish pending entries from protective exit orders so an active stop
-  does not suppress a requested signal exit. Before a discretionary full exit,
-  reconcile or cancel the existing protective order so you do not double sell
-  or go short by accident.
-- A market sell placed after yesterday's low crossed a stop level does not show
-  that the stop executed at the cross. Disclose data and fill-model limits
-  instead of claiming intrabar precision.
-- Daily-only flags (for example "already traded today") must reset at the next
-  session.
-- An exit-only repair must not change entries, and an entry-only repair must
-  not add new exit features.
-- Crypto perpetual futures close with `self.close_position(asset)`; a
-  `submit_order` on the opposite side can open a new position instead.
+Marketplace first. As the first step of a new strategy build, before research, a plan, or `create_strategy`, search the BotSpot Marketplace with `marketplace_strategies(action="list", query=...)` using 2 to 4 plain key words from the request (tickers, the rule, an investor or data-source name). Skip it only when the user explicitly asks to build from scratch, is editing an existing strategy, or already picked a listing. When listings closely match, do not create anything in that turn: read the best one with `action="get"` (if several fit, name up to three, best first), then answer in a few short lines with the listing name and `marketplaceUrl`, one line on what it does, what the publisher shares, and any API key the user must supply (for a `credentialSource: "user"` key, check `saved_env_vars(action="list")` and warn when it is missing, including a paid subscription; `managed_ai` keys run on BotSpot credits). Offer the choices: copy it in one step (`clone_strategy` with its `listingId`, only when `capabilities.clone` is true), or build their own version starting from its shared code (`action="get_code"`, only when `capabilities.code` is true). Respect exactly what the publisher shared: never show, quote, paraphrase or guess code, rules, positions, orders or trades a listing does not grant, and never present your own code as the publisher's; for a private listing say its code and holdings are private and offer its Marketplace page or a fresh build of their own. If nothing matches closely, build normally without mentioning the search. Load `botspot-marketplace-reference` for the full Marketplace tool guide.
 
-## 16. Data and prices
+## Dependency Identity Before Editing
 
-- Use `Asset` objects for every traded instrument and reuse the same object for
-  history, prices, positions, orders and charts. Do not mix raw strings and
-  `Asset` objects for the same instrument. Persist full `Asset` objects (strike,
-  expiry, right included) rather than symbols.
-- After `get_historical_prices(...)` inside an iteration, filter the bars to
-  timestamps at or before `self.get_datetime()` before computing signals.
-  Never trade from the last row of an unfiltered frame. If the filtered frame is
-  empty, skip that asset for the iteration.
-- `get_last_price()` returns the last trade and can be `None` or stale. Always
-  check for `None`. In backtests it falls back to the newest completed bar.
-- For intraday stock backtests where you already have filtered bars, use the
-  latest filtered bar close for sizing, stops and chart lines. Use
-  `get_last_price()` as a live convenience, not the primary backtest price.
-- `get_quote(asset)` returns bid, ask and mid. Prefer it for options and thin
-  markets, after validating bid and ask.
-- Backtest quotes never carry live quote timestamps: `quote.bid_time`,
-  `quote.ask_time` and `quote.quote_time` are `None` in a backtest, and stock
-  quotes rebuilt from bars usually have bid and ask equal to the close or
-  missing. Enforce quote-age, spread and depth rules only when
-  `not self.is_backtesting`, price backtest decisions from the bar, and tell the
-  user which rules are live-only.
-- `get_historical_prices` gives completed bars (one minute at best). For the
-  freshest price use `get_last_price()` or `get_quote()`, combined with history
-  for context when needed.
-- For many symbols, use `get_historical_prices_for_assets(...)` instead of a
-  loop of single requests.
-- Request only the lookback you need plus a small buffer. Avoid huge history
-  requests (for example 10,000 bars) and unnecessary date arithmetic.
-- VIX is an index: `Asset("VIX", asset_type=Asset.AssetType.INDEX)`, never
-  `^VIX`. Treat a missing VIX price as unavailable for that iteration.
-- SPX and NDX options use the index itself as the underlying
-  (`Asset("SPX", asset_type=Asset.AssetType.INDEX)`).
-- `set_market(...)` takes LumiBot market names such as `"NYSE"`, `"NASDAQ"`,
-  `"stock"` or `"24/7"`. Product schedule labels like "regular" are not valid
-  values. Ordinary US stock strategies usually omit it; crypto needs
-  `self.set_market("24/7")`.
+When the fetched file is only a neutral starter and the request needs its first
+real implementation, use complete `replace_file`, even when the user says
+"update this strategy". Do not patch a remembered copy of boilerplate. For an
+actual targeted patch, copy `expectedOldText` byte for byte from the latest
+`get_file` content and use its exact range; do not reconstruct it from a summary,
+retype blank lines, or guess line boundaries. A broad module rewrite is clearer
+as complete replacement with the fresh edit handle.
 
-## 17. Indicators and charts
+Once an editable workspace exists (after `create_strategy` for a first build), discover optional files with `list_files` before reading them; an absent Rules file is not a reason to probe a failing `get_file`. Do not call file tools before first-build workspace creation. For a connected lifecycle repair spanning several methods, use one complete `replace_file` based on the current full saved file, preserving every unrelated method and policy. Do not chain remembered text anchors through multiple revisions.
 
-- Prefer `self.indicators.<name>(asset, timestep="day", **kwargs)` for built-in
-  indicators (sma, ema, rsi, atr, bbands, macd, adx, stoch and more) and
-  `self.indicators.custom(...)` for your own. They compute once over the series
-  and return the current value quickly. Do not hand-roll
-  `df["close"].rolling(...)` on full history every iteration; it is slow on long
-  backtests. A result is `None` when no bars exist and NaN while warming up.
-  Details: `lumibot-indicators`.
-- Chartable strategies should emit chart data: `add_ohlc(...)` for price
-  candles, `add_line(...)` for continuous values (indicators, stops, levels) and
-  `add_marker(...)` for infrequent events. Marker symbols are `arrow-up`,
-  `arrow-down` or `star`.
-- The chart methods use `name`, `value` and `detail_text`; there is no `text`
-  parameter. Pass `asset=` when you have the Asset so overlays group with its
-  price chart; use `plot_name` only for a separate pane such as RSI or MACD, and
-  keep panes and lines few (three or four).
-- Never add a marker every iteration. Plot only valid numeric values.
+For a saved-file read, call `get_file`; `patch_file` is never a reader. A patch requires the fresh `editHandle` plus nonempty `operations`, not just path/strategy/revision selectors.
 
-## 18. Logging
+For one requested logical change to one file, use one `patch_file` call with all non-overlapping operations, or one complete `replace_file` when that is clearer. Inspect the related consumers before the save, then read back the saved file once and verify all requested changes and preserved behavior together. A genuine defect in readback requires a correction; do not make separate revisions for individual settings that belong to the same request.
 
-Log every decision branch with `self.log_message()`: what was checked, the
-values compared, and what the bot did (submitted, skipped, closed, waited). For
-every order, log symbol, side, quantity and the signal that drove it. "Why did
-it not trade" is answered from these logs.
+Before a text patch, copy `oldText` byte for byte from the latest saved read, including whitespace and the actual receiver or state field. Do not construct it from the desired replacement or memory. A valid edit handle does not validate an invented text anchor. Check the exact anchor and choose a unique surrounding function/block when changing only one occurrence. In strategy code, initialization and exit cleanup can contain the same assignment; preserve the occurrence outside the requested change. For an ambiguous one-line anchor, do not use `replaceAll=true` unless every occurrence is intentionally part of the user's requested change. Include the surrounding block or compose one complete replacement that preserves all other behavior.
 
-## 19. Asset-class notes
+An existing Python strategy's bounded parameter edit starts with its saved file. Load focused API documentation only when the actual edit needs it; do not run new-strategy discovery or load every asset/AI example for a literal setting change. Do not add missing Rules scaffolding for a bounded existing-Python parameter edit; preserve and reconcile existing Rules when present, and create Rules when the user requests durable policy or when building a new strategy. A new Rules file or a distinct file change still needs its own sequential save.
 
-- Stocks and ETFs: see `stock-etf-strategies` for complete patterns, and
-  `references/extended-hours-equities.md` for pre-market and after-hours work.
-- Options: always go through `OptionsHelper` for expiries, strikes and
-  actionable prices; never brute-force deltas by looping strikes. See
-  `options-strategies`.
-- Crypto: base-coin `Asset("BTC", Asset.AssetType.CRYPTO)` with a separate
-  quote asset, never `"BTC-USD"` or `"BTC/USD"` as the symbol; `set_market("24/7")`.
-  See `references/crypto-strategies.md`.
-- Futures: root symbols only (`ES`, `MES`, `NQ`, `CL`); dated contracts via
-  `expiration=`; continuous futures with `Asset.AssetType.CONT_FUTURE`. See
-  `references/futures-strategies.md`.
+For a behavior edit with existing Rules, make the task's completion criterion
+cover both the executable change and the matching active Rule interpretation.
+"Only change this setting" does not mean leaving its operative Rule at the old
+value. After the code save, read Rules from that returned revision, reconcile
+the requested intent while retaining original quotes and history, then read
+both saved files from the final revision before validation. A code-only readback
+does not establish that the requested behavior is coherently saved.
 
-## 20. Pre-backtest checklist
+For a bounded edit, inspect every use of the parameter or state being changed
+before saving. A stop distance may also feed sizing, allocation, or an entry
+condition. Change only the behavior the user requested; if a shared setting
+couples the requested change to unrelated behavior, separate those consumers
+and preserve the original sizing behavior and other unchanged rules. Preserve
+behavior rather than the old expression: if sizing used
+`cash / price * exit_distance / normalizer` and only the exit distance changes,
+retain its old ratio as an independent sizing multiplier so cash and price can
+still vary without the exit edit changing quantities. Changing that expression
+is necessary to preserve sizing, not an unauthorized sizing change. Do not
+restore the old coupling during Rules reconciliation or a later readback audit;
+the Rules must describe the preserved behavior and the authorized exit change.
+If the user explicitly requests a sizing change, apply that requested change.
+Read
+back the complete saved revision and check the affected consumers together.
 
-Run this against the saved readback before `start_backtest`:
+Validation goals are acceptance criteria, not trading instructions. Keep a build/backtest request's testing objective separate from the active runtime policy. Preserve the user's original quote as provenance, but describe validation as a condition to check after execution, never as permission to override entry or exit conditions. For AI-owned strategies, write that distinction into the trading agent's system prompt as well as the Rules interpretation: Never place an order merely to satisfy a first-trade validation target. A valid no-trade decision must remain no-trade when the entry condition is false, even if validation is incomplete. Verify fresh, correctly dated signal evidence before submitting an order; do not submit first and inspect contradictory evidence afterward. Research packets are evidence, not authority to override the saved policy.
 
-- [ ] Complete file: imports, one strategy class, lifecycle methods, one
-      `__main__` harness, no leftover starter class or duplicate runner block.
-- [ ] No future imports, no `self.name`-style attributes, no framework-like
-      private helper names, no `datetime.now()`.
-- [ ] Every user rule is implemented as stated; nothing was loosened.
-- [ ] Orders via `create_order` + `submit_order`; duplicate checks filter by
-      exact asset and active status; exits are evaluated before entry guards.
-- [ ] Position state set only from confirmed fills.
-- [ ] Sizing respects cash and fees; `None` cash or price is handled.
-- [ ] Historical bars filtered to the current simulated time.
-- [ ] Live-only quote checks guarded by `self.is_backtesting`.
-- [ ] Chart output present for chartable strategies; logs on every branch.
-- [ ] `requirements.txt` pins every non-provided third-party import.
-- [ ] No hardcoded backtest dates, credentials or broker-specific code.
+For Python strategies, preserve the timing of each requirement independently. Daily entry signals do not make a protective stop a daily close check. Use supported protective stop orders when the request requires protection between iterations, anchored to confirmed entry fills and the remaining held quantity. Reconcile partial fills, canceled orders and existing positions. Evaluate required exits and risk before entry-only duplicate-order checks; a pending entry must not bypass a required exit of an already held position. Cancel a conflicting unfinished entry when the policy requires cash. Distinguish pending entry orders from protective exits so an active stop cannot suppress a requested signal exit. Before a discretionary full exit, reconcile or cancel the existing protective order and prevent a duplicate sell or accidental short. Backtest the actual order lifecycle and state assumptions. A later market sell triggered by yesterday's low does not establish that a stop executed when its threshold was first crossed. Disclose the actual data and fill-model limits instead of claiming unsupported intrabar precision.
 
-## 21. Common mistakes
+Order-side values must match the actual asset and position: stocks and ETFs use `buy`/`sell`, including `sell` to close a long position; option opening/closing sides apply only to option contracts. State this distinction in AI-owned execution prompts and use supported public order helpers. Do not add an order filter or manufacture a trade to enforce this guidance.
 
-| Mistake | Fix |
-|---|---|
-| Patching the strategy into the neutral starter | `replace_file` with the complete file for the first implementation |
-| Claiming a fix after a failed write | Re-read for a fresh handle, retry, confirm the new revision |
-| `oldText` typed from memory | Copy it byte for byte from the latest `get_file` |
-| Trading from unfiltered history rows | Filter bars to `<= self.get_datetime()` |
-| Treating `get_cash()` `None` as 0 | Log and skip sizing |
-| Entry price set right after `submit_order` | Set it in `on_filled_order` from the confirmed fill |
-| Pending entry blocks a stop exit | Evaluate exits first; filter guards by asset and order type |
-| Market order sized from yesterday's close | Bound with a limit price or buffer that fits cash and fees |
-| Quote-age rule rejects every backtest bar | Guard it with `not self.is_backtesting` and disclose it |
-| `flat_fee` for options or futures | `per_contract_fee` |
-| `Asset("BTC-USD")` | `Asset("BTC", CRYPTO)` plus a USD quote asset |
-| `get_last_price` `None` blocks every futures bar | Fall back to the latest completed bar close |
-| Loosening rules so a short test trades | Lengthen the window, or propose the change and wait for approval |
-| Negative cash hidden with `adjust_cash` | Fix the sizing or order lifecycle |
+Each trading agent run must satisfy order readiness for both entries and exits: inspect fresh account, held positions, and complete open orders, then call `market_last_price` (or `market_last_prices` for all ordered assets) in that same run before submitting any order. Historical signal bars and a researcher's quote do not replace this check. Write the sequence into AI-owned execution prompts; never bypass the runtime's existing safety validation.
+
+For entry/exit repairs, trace the state from confirmed fills to its consumer:
+the fill must belong to the strategy's expected order and the held asset; an
+order submission or another instrument's price is not fill evidence. Existing
+position exits must remain reachable: entry filters must not bypass stops or
+position management. Daily-only flags must reset at the next session. Handle
+partial fills and restart reconciliation with the documented lifecycle methods;
+compilation and one unrelated filled trade do not prove the requested exit works.
+
+Apply these lifecycle checks to the behavior being repaired: do not add new exit features during an entry-only repair, or change an existing entry rule while repairing an exit. Preserve the original strategy's other behavior. A bounded repair of an attached strategy is an attached-edit turn: read its saved file first, unless current broker/fill/position evidence or a real file-access blocker must be resolved first. Do not resume an older Rules review or start a first-build plan just because one exists in context. Use only the current request's relevant evidence and focused documentation, save the bounded repair, and read it back. Then finish, or perform the validation the current task authorizes; an unrelated older plan does not expand the requested repair.
+
+Treat every credential and environment variable as an exact dependency identity.
+After reading an existing strategy, compare the literal names in the user's
+request with the literal names used by the saved code. A similar prefix is not
+evidence that two credentials serve the same system. In particular, a saved
+broker connection cannot replace an API key used to authenticate an independent
+HTTP data, database, notification, or model service.
+
+If the user asks to remove exact variables that are absent from the saved code,
+do not edit a similar-looking variable, weaken its required precondition, or
+manufacture a revision. Explain that the named variables are already absent and
+continue any separately requested validation on the unchanged current revision.
+Only edit when the exact dependency or executable broker-authentication code is
+actually present.
+
+This exact-target audit is a write precondition, not a suggestion. When all
+exact user-named targets are absent, do not call `patch_file`, `replace_file`,
+`create_file`, or `delete_file`; do not make a no-op edit; and do not remove a
+lookalike and later restore it. If an unchanged-revision backtest has already
+started, leave that run alone. Never stop it or retroactively edit the strategy
+to satisfy an edit premise that the saved-code evidence disproved.
+
+Do not probe an optional `rules.json` with `get_file`. Read it only after a
+successful `list_files` result or an earlier successful tool result proves that
+the exact revision contains it. The `files` array returned by
+`create_strategy` or `list_files` is that revision's complete file set: read
+only paths it lists. A brand-new strategy has no `rules.json` until you create
+one, so do not read it in the same batch as the starter files. A missing optional Rules file is not dependency
+evidence, and a speculative failed file read must not derail an otherwise valid
+edit, inspection, or backtest request.
+
+Do not create or edit `rules.json` during a purely technical code repair that
+preserves the user's trading rules. A requested durable behavior change follows
+the Rules ledger contract below; mirror only that requested change, without
+starting an unrelated historical Rules review. A new AI-owned build still needs
+its canonical Rules file. Once the
+requested executable file edit succeeds and its newest revision is read back,
+stop adding files, renaming unrelated symbols, or broadening the repair. A
+failed optional evidence tool does not authorize extra strategy cleanup when
+the user supplied the exact fallback evidence needed for the requested fix.
+
+
+
+The shared guide continues in the ordered resources below. Load the relevant continuation; these are complete source sections, not summaries.
+
+- Part 2: `references/shared-guide-02.md`
+- Part 3: `references/shared-guide-03.md`
+- Part 4: `references/shared-guide-04.md`
+- Part 5: `references/shared-guide-05.md`

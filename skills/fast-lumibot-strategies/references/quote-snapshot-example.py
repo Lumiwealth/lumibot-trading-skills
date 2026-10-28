@@ -1,3 +1,4 @@
+# PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
 """Bounded public-API quote reads; data acquisition only, never trading policy.
 

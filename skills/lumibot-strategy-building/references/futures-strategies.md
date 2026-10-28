@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # Futures strategies in LumiBot
 
 Use with the `lumibot-strategy-building` skill for futures, continuous futures

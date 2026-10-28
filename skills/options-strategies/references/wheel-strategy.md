@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # The Wheel: a Worked Pattern
 
 Part of the `options-strategies` skill. The wheel is a two-phase cycle:

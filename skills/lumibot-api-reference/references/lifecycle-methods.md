@@ -1,3 +1,10 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
+---
+name: lumibot-lifecycle-methods
+description: Use when deciding where strategy logic belongs across initialize, trading iteration, market-open hooks, and other LumiBot lifecycle methods.
+---
+
 LUMIBOT STRATEGY LIFECYCLE METHODS
 
 LumiBot strategies should put logic in the lifecycle callback method that matches the

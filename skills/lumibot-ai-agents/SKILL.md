@@ -1,597 +1,638 @@
 ---
 name: lumibot-ai-agents
+title: AI-Powered LumiBot Strategies (LLM Agents That Research and Trade)
 description: Load when someone wants an AI-powered trading strategy, an AI trading bot, an LLM agent that trades, an AI trading team or investment committee, or any LumiBot strategy built with self.agents (research agents plus one trading agent). Covers the agent API, the one-trader team pattern, prompts, tools, rules.json, cadence and cost, backtesting AI strategies, and the BotSpot build and validation workflow.
+visibility: public
 license: MIT
-metadata:
-  title: "AI-Powered LumiBot Strategies (LLM Agents That Research and Trade)"
 ---
-# AI-Powered LumiBot Strategies
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
-An AI-powered strategy is a LumiBot strategy where large language model agents
-inside the strategy do the thinking. Research agents gather and weigh evidence.
-Exactly one trading agent reads that research, checks the live account, and
-places or skips the orders itself. Python only sets the cadence, creates the
-agents, and calls them in order.
+For external clients, load guides with the BotSpot MCP `skills` tool (action=get, name=<skill>). Resource identifiers written as <skill>:references/<file> use name=<skill> and reference=references/<file>. Installed native clients can read the same local reference file. The following is shared authoring guidance; use the tools actually advertised by your client.
 
-This is a different design from a Python-rules strategy. If the user wants
-fixed if/else signals and Python-placed orders, use the
-`lumibot-strategy-building` skill instead (see "When the user wants Python to
-place the orders" below).
+--------------------------------------------------------------
+AI AGENTS COMPONENT
+--------------------------------------------------------------
 
-Examples in this skill are illustrations of code structure. They are not
-investment advice and say nothing about future performance.
+## Explicit Python order ownership
 
-## Which reference to load
+When the user explicitly chooses Python signals/orders and non-trading AI,
+implement that choice. In the first visible progress acknowledgment, explain this tradeoff once:
+ BotSpot usually lets one trading agent place orders because hand-written
+order code can miss a rebalance or an instrument-identity edge case; this build
+keeps orders in Python as requested. Every AI role has allow_trading=False.
+Complete BUY targets against confirmed existing positions as below, rather than
+skipping every held symbol. An already-held skip is not duplicate-order control;
+reconcile actual pending orders separately.
+At the saved-code readback, follow one qualifying held underweight through the
+actual sizing and submission path. A positions-membership continue still skips
+the required top-up even when a separate helper computes target weights.
+For multi-leg mandates, compare the researcher prompt, trader prompt and saved
+active Rules: each must preserve the requested atomic entry and atomic exit.
 
-Load a reference with the `skills` tool: `action="get"`, `name="lumibot-ai-agents"`,
-`reference="references/<file>"`.
+## Python-owned equal-weight BUY targets
 
-| You are building | Load |
-|---|---|
-| A multi-role team (committee, bull/bear debate, sector pods, macro regime team) | `references/ai-trading-teams.md` and `references/ai-trading-team-examples.md` |
-| An AI-only iron condor, credit spread, opening range breakout or VWAP strategy | `references/ai-only-scaffolds.md` |
-| Auditing what the trading agent does around orders, or a strategy that duplicates order mechanics in Python or prompts | `references/ai-only-order-verification.md` |
-
-Related public skills: `lumibot-strategy-building` (general strategy structure
-and Python strategies), `lumibot-api-reference` (Strategy methods),
-`options-strategies`, `stock-etf-strategies`, `lumibot-indicators`,
-`fast-lumibot-strategies`, `using-botspot-mcp` (the BotSpot tools).
-
-## The core rules (read first)
-
-Every AI-owned trading strategy follows these rules, whether it has two agents
-or ten.
-
-1. **AI and AI only.** The agents make the decisions. There is no Python in
-   between that fetches or parses data, filters filings or news, computes
-   indicators or weights, picks symbols, sizes positions, parses agent text into
-   orders, or skips agents with `if` statements. Python sets `self.sleeptime`,
-   creates the agents in `initialize()`, and calls every agent on every
-   `on_trading_iteration()`.
-2. **Exactly one trading agent.** One agent has `allow_trading=True`. It places
-   the trades and owns risk management. Name it by its job, for example
-   `trader`, `risk_trader` or `portfolio_manager`. Immediately before acting it
-   re-checks current positions, open orders and prices (and, for options, the
-   exact contracts and package price). LumiBot's built-in trading skills already
-   teach it those mechanics.
-3. **At least one research agent, and any number of them.** Every other agent
-   has `allow_trading=False`: researchers, specialist pods, bull and bear
-   debaters, a devil's advocate critic. A critic may comment on risk, but that
-   is advice; the trader still owns risk. A single agent that researches and
-   trades at once makes more mistakes, so a one-agent AI trading strategy is not
-   a valid design even for a simple single-asset bot.
-4. **Agents hand work to each other only through their answers.** Python passes
-   an earlier agent's `result.summary` to later agents through the `context`
-   argument. That is the whole hand-off.
-5. **`self.vars` may carry an agent's last answer forward**, so it does not redo
-   old work next iteration. Store the answer and pass it back in as context.
-   Do not parse it.
-6. **Let the agent find its own way.** Agents can browse, download and read
-   documents, query market data, and look up filings with built-in tools. A
-   short hint about where to look may go in the prompt ("SEC filings and recent
-   Alpaca news are good starting points"). Parsing code, availability code or
-   pre-fetched data may not.
-7. **The trading agent places the trades, not Python.** Order code tends to miss
-   edge cases (a rebalance that sells the wrong amount, a symbol with a dot such
-   as `BRK.B`). A trading agent reasons around them, and LumiBot's runtime skills
-   make it re-check positions, open orders, prices and the returned order. Do not
-   copy those mechanics into prompts or Python.
-8. **The trader's own `system_prompt` states its risk rules in plain sentences.**
-   At least two concrete rules: how much of the account may go into one position,
-   when to hold cash, when to trim or cut a loser, how many holdings it normally
-   keeps, plus any strategy rule. When the user said "safe" or gave no limits,
-   choose sensible limits and tell the user what you chose. When the user
-   rejected caps ("fully unrestricted"), follow that instead (see "Explicit
-   mandates" below).
-9. **Diversification is guidance, never a hard rule.** A single-asset bot (for
-   example "in BTC or in cash") is fine. Do not add other assets or lecture. Its
-   prompt still states how much of the account may go into that asset and when
-   to cut or exit a losing position.
-10. **Every capability is a tool, not strategy code.** Built-in tools cover the
-    account, market prices and history, indicators, orders, options, news, SEC
-    filings, FRED macro data and memory. Network tools go only to research
-    agents that need them, via `allow_network=True`, never to the trader. Write
-    an `@agent_tool` only when the user names a real provider LumiBot does not
-    cover.
-11. **A plain "I want an AI that trades for me" is a build request.** Do not quiz
-    a beginner. Build a small team on a liquid, diversified ETF universe (for
-    example SPY, QQQ, IWM, TLT, GLD) with beginner-friendly risk rules in the
-    trader's prompt, explain in plain words what it will do, start a short
-    validation backtest, and invite changes. Ask only when a missing choice
-    would make the build unsafe or impossible.
-
-If the user explicitly asks for a single agent, explain that an AI trading
-strategy keeps a separate research agent and one trading agent, and offer a
-Python or hybrid design if they need exactly one model call.
-
-## Minimal working shape
+For a user-selected Python BUY-target design, evaluate the user's signal and AI
+PASS/VETO policy first. Include EVERY qualifying symbol in the target set,
+including held underweights. Use confirmed account value, positions and spendable
+cash; an unfilled sell is not available cash. This pure sizing step creates no
+signal, order or additional sell rule. Apply the common factor before any
+required broker quantity rounding, then reconcile reservations before submission.
 
 ```python
+import math
+
+def equal_weight_buy_quantities(prices, held_quantities, eligible, account_value, available_cash):
+    eligible = list(dict.fromkeys(eligible))
+    if not eligible:
+        return {}
+    if not math.isfinite(account_value) or account_value < 0 or not math.isfinite(available_cash):
+        raise ValueError('Use verified finite account values')
+    if any(not math.isfinite(prices[symbol]) or prices[symbol] <= 0 for symbol in eligible):
+        raise ValueError('Each eligible asset needs its actual positive price')
+    target_value = account_value / len(eligible)
+    deficits = {symbol: max(0.0, target_value / prices[symbol]
+                           - held_quantities.get(symbol, 0.0))
+                for symbol in eligible}
+    required_cash = sum(deficits[symbol] * prices[symbol] for symbol in eligible)
+    common_factor = min(1.0, max(0.0, available_cash) / required_cash) if required_cash else 0.0
+    return {symbol: deficit * common_factor for symbol, deficit in deficits.items()}
+```
+
+An overweight gets a zero BUY deficit, not an unauthorized sell. Retain the
+user's VETO exit and other actual sell rules independently. AI-owned designs
+leave this decision with their sole trader rather than adding Python orders.
+
+## Preserve the complete policy across roles
+
+For a requested atomic multi-leg entry and exit, the shared effective policy
+must explicitly say both "enter the complete package atomically" and "close
+the complete package atomically", with the actual entry/exit windows. Pass
+that same policy prefix to the non-trading researcher AND sole trader; an
+atomic exit clause alone omits the entry obligation. Copy all package constraints
+to the active Rules as well. Do not replace this with two partial paraphrases.
+When the user leaves the model unspecified or chooses the default, copy the
+CURRENT AI MODELS row explicitly marked (default),
+not the highest bot-recommendation rank or an older code example's model.
+
+
+For a dated multi-leg policy, put this evidence requirement directly into the
+shared policy prefix actually passed to BOTH roles: "Require dated bid and ask
+observations for every individual leg as of the instructed decision date.
+Reject later/current quotes for a historical decision; missing dated evidence
+means no entry, never a later retry." Adapt the actual dates and instruments.
+A generic actionable package quote or "date-appropriate" summary omits the
+per-leg observation requirement. Verify the saved effective prompt strings,
+including their shared prefix, after the file readback.
+
+
+For a multi-agent package with exact user constraints, put the complete policy
+in one shared text variable and prefix BOTH research and sole execution/risk
+agent prompts with it. Include the actual leg directions, quantities, expiry,
+entry AND exit dates/windows, atomic package entry and complete-package close,
+per-leg dated bid/ask evidence, and missed-entry/no-later-retry rule when requested.
+Do not leave atomicity only in the exit clause or require quotes only for the
+package total. Each role must retain each leg's available observation date/time;
+never substitute future/current quotes for a historical decision or invent
+precision. Report missing evidence. Add each role's own responsibility and a
+finite research packet bound. Keep the ordinary rules_path binding; this shared
+policy is not a duplicate Rules ledger. At readback, compare both actual saved
+prompts and Rules against every requested constraint.
+
+For an equal-weight BUY target, qualifying stocks already held still belong in
+the eligible set. Calculate target quantity minus confirmed held quantity and
+buy its positive deficit; an unconditional already-held skip loses legitimate
+underweight purchases. Apply one common confirmed-cash scaling factor to all
+proposed buys. A BUY-target policy does not authorize selling overweights;
+perform reductions only if the user asked for rebalancing or a stated veto exit.
+This allocation math belongs in Python only when the user explicitly selected
+Python-owned orders; AI-owned designs leave decisions with the sole trader.
+
+## AI-owned new automation
+
+Define the handoff in the saved upstream agent prompt before creating the team:
+name its packet fields and an explicit candidate/evidence-size bound chosen for
+this strategy. Include thesis, exact candidates, observed prices, risks, invalidation
+and missing evidence. A request to "research findings" or passing `result.summary`
+does not by itself define that bounded packet. Python passes the answer unchanged;
+the terminal trading/risk agent evaluates it and rechecks execution evidence.
+
+After saving an AI-team build, identify the upstream research role and the sole
+execution/risk owner separately in the final reply. For example: "The research
+agent gathers setup evidence; the trading/risk agent alone decides and places
+orders." Saying only that "AI agents handle research and trading" does not
+explain the separate ownership. Then report the observed backtest state: saved
+code or a queued backtest does not prove a trade or completed validation.
+
+## Saved-file review before validation
+
+After the final edit, compare the actual saved `main.py` and `rules.json` before
+starting validation. Repair a mismatch in the file that contains it, then read
+that file back. Do not treat the intended design as proof of the saved design.
+
+- Read each saved file literally; a correct trader prompt does not correct
+  contradictory Rules. For an options package, write out the ordered strikes,
+  the buy/sell action of each leg, and the opening debit or credit; compare that
+  same structure across the active Rules and trader policy. For example, a
+  long/debit iron condor sells the outer put, buys the inner put, buys the inner
+  call and sells the outer call. Long outer wings with short inner legs describe
+  the inverse credit package, even when its label says "long".
+- Check the actual call sites, not only sleeptime or role prose. When the request
+  names decision windows, trace one iteration outside those windows: neither
+  researcher nor trader should run there. Put the clock schedule around the
+  whole team; asking an hourly trader to hold until the close still buys hourly
+  research and trading calls. Keep market decisions and orders inside the AI.
+- Keep research ownership and execution/risk ownership separate in the handoff.
+  Name what the upstream researcher supplies and what only the terminal trader
+  decides and executes. Report the actual returned validation state separately.
+
+Default ordinary new automation to AI-owned decisions when it has hourly or
+slower intelligent decisions and no fast-reaction requirement, using the working LumiBot
+`self.agents` engine. Python supplies lifecycle, cadence and invocation, not a
+competing signal or order owner. Bind canonical sibling `rules.json` through
+`rules_path`; an `aiEnabled` label alone does not implement the policy. Exact
+signals, quantities and budgets are valid AI instructions. Exact rules alone
+do not require Python, but frequent intelligent decisions or fast reaction do
+justify recommending Python or a hybrid. Do not force existing Python
+strategies to migrate; explicit Python and chosen hybrid designs remain
+supported. Do not claim a separate no-Python engine exists.
+For an availability question, explicitly explain that exact requested rules
+can be carried as active Rules into this AI runtime. That preserves the
+instructions; it does not guarantee deterministic decisions or profitable trades.
+
+Use BotSpot-managed inference and BotSpot credits by default. Provider key
+requirements below apply only to explicitly chosen BYOK/local execution, not
+managed BotSpot execution. Do not add any model-provider API key as a
+user prerequisite for managed inference. Preserve explicit BYOK choices.
+
+## AI trading team conventions
+
+Every AI-owned trading strategy follows these conventions, whether it has two
+agents or ten. The running reference examples are LumiBot's
+`ai_trading_team_ray_dalio_idea_meritocracy.py` and
+`ai_trading_team_citadel_sector_pods.py` (see
+`references/ai-trading-team-examples.md`).
+
+1. **Exactly one terminal trading and risk agent.** One agent has
+   `allow_trading=True`. It places the trades AND owns risk management. Name it
+   by that job, for example `risk_trader` or `portfolio_manager`. It is the
+   sole order owner; immediately before acting it must revalidate current
+   positions, account state, open orders, executable prices, liquidity and risk,
+   and for options the exact option contracts and package pricing
+   (LumiBot's runtime trading skills supply those
+   mechanics). Why: one agent that researches, trades and manages risk at once,
+   especially on a cheaper model, makes far more trading mistakes.
+2. **At least one upstream non-trading researcher, and any number of them.**
+   Every other agent has `allow_trading=False`: researchers, specialist pods, bull and bear
+   debaters, a devil's advocate. A non-trading critic may comment on risk, but
+   that is advice; the trading agent still owns risk.
+   A one-agent AI-owned trading strategy is invalid, even when the strategy is
+   simple, trades one asset, or the user did not say "team".
+3. **The agents talk to each other; Python only passes the messages.** Python
+   sets `self.sleeptime`, creates the agents in `initialize()`, and in
+   `on_trading_iteration()` runs them in order, passing earlier agents'
+   `result.summary` to later agents through `context`. Python does not fetch or
+   parse data, compute indicators or signals, pick symbols, size positions,
+   parse agent text into trades, or create and submit orders. A research agent
+   returns a bounded setup packet: thesis, exact candidates, observed prices,
+   risks, what would change its mind, and missing evidence. The one allowed
+   exception is a cheap Python watcher for setups that need fast reaction
+   (for example an iron condor stop): it only checks a condition on a short
+   `sleeptime` and wakes the trading agent when the condition appears; it never
+   sizes or places orders itself (see AI decision cadence and usage).
+4. **The trading agent places the trades, not Python.** Code misses edge cases: a rebalance
+   that sells the wrong amount, or a symbol with a dot such as `BRK.B` breaking
+   the code. A trading agent reasons around them. LumiBot's runtime trading
+   skills supply the detailed position, open-order, price and returned-order
+   workflow. Keep the short role obligation in the saved trader prompt, as in
+   the minimal example below; do not copy the full tool workflow into prompts
+   or Python.
+5. **The trading agent's own `system_prompt` states its risk rules in plain
+   sentences.** At least two concrete rules, written as sentences, not Python
+   and not "apply the active Rules": how much of the account may go into one
+   position, when to hold cash, when to trim or cut a loser, how many holdings
+   the strategy normally keeps, plus any strategy rule (an All Weather trader
+   keeps money spread across stocks, long bonds, medium bonds, gold and
+   commodities). This is the trader's job description, so write it even when
+   `rules.json` also carries the user's rules. When the user said
+   "safe" or gave no limits, choose sensible limits and say so in the reply.
+   When the user rejected caps ("unrestricted"), follow that mandate
+   instead (see Explicit Design Mandate Compliance).
+6. **Diversification is guidance, never a hard rule.** Many customers want a
+   single-asset bot, such as a Bitcoin bot that is either in BTC or in cash.
+   That is fine: do not add other assets, require several holdings, or
+   lecture. A single-asset trader's prompt must still state, as sentences, how
+   much of the account may go into that asset (for example "never put more
+   than 50% of the account in BTC") and when to cut or exit a losing position
+   (for example "sell BTC when it falls 15% below your entry or the reason you
+   bought no longer holds").
+7. **Every capability is a tool, not strategy code.** LumiBot's built-in tools
+   are on by default: account, market prices and history, indicators, orders,
+   options, Alpaca news, SEC, FRED and memory. The network tools (`web_search`,
+   `http_request`, `read_document`, `rss_fetch`, `browser_*`) go only to the
+   research agent that needs them, through `allow_network=True`, never to the
+   trader. A missing news, FRED or other data key never blocks a build: build
+   with the built-in tools, and say once which saved key would add that data.
+   Write an `@agent_tool` only when the user names a real provider LumiBot
+   does not cover; if a capability is missing, say LumiBot needs a new built-in
+   tool instead of hand-writing Python helpers.
+8. **Model.** Write and recommend the model marked (default) in the CURRENT AI
+   MODELS table on every agent (it is chosen to be cheap and fast for agents
+   inside bots) unless the user picks another model. Any current model is
+   allowed.
+9. **When the user wants code to place the trades, follow the user.**
+   Build exactly that, without asking permission first: every agent
+   `allow_trading=False`, Python owns the signals and orders by the user's
+   rules. When the final reply describes the saved design, it must include one
+   plain design-tradeoff sentence: BotSpot's usual design lets one trading
+   agent place the orders because order code tends to miss edge cases (name
+   one: a rebalance that goes wrong, or a symbol like `BRK.B` breaking the
+   code), and this build keeps
+   orders in Python because the user chose that. It is part of the design
+   description, not an optional offer. Do not refuse, nag or repeat it.
+10. **A plain "I want an AI that trades for me" is a build request.** Beginners
+    often name no assets or limits. Do not quiz them: build a small team on a
+    liquid, diversified ETF universe such as SPY, QQQ, IWM, TLT and GLD with
+    beginner-safe risk rules in the trader's prompt, explain in plain words what
+    it will do, start the validation backtest, and invite changes.
+
+If the user explicitly requests a single agent, explain that an AI-owned
+trading strategy keeps the separate terminal risk/trader boundary and offer a
+deterministic or hybrid design if one model call is mandatory.
+Latency-sensitive or high-frequency requirements should use a deterministic or
+hybrid design rather than collapsing research and execution into one
+trading-enabled agent. If the user says the AI workflow is too slow, first
+reduce upstream agents, evidence size, and cadence while preserving one
+upstream agent plus exactly one terminal trader.
+
+Before validation, read back the saved role policies and active Rules together.
+The terminal trader's own policy must assign its current account, positions,
+open-order, exact-contract, executable-price, liquidity and risk checks;
+researcher instructions alone do not assign that responsibility.
+Every risk limit referenced by a saved prompt must actually exist in the active
+Rules. If the user omitted a value, choose and disclose a reasonable default
+rather than referring to an undefined ceiling or asking for arbitrary numbers.
+
+## AI decision cadence and usage
+
+Default new AI-owned strategies to daily AI decisions. When the strategy needs
+intraday decisions, use the coarsest cadence that can observe the requested
+setup and normally call the AI team no more frequently than once per hour.
+Treat one hour as a soft recommendation, never a hard block, entitlement rule,
+or validation failure. `30M`, `10M`, or faster AI can be appropriate when a
+real intraday requirement needs it and the user accepts the tradeoff, but it is
+a deliberate cost/latency choice rather than a silent default.
+Named entry, exit, and management times are decision windows: gate the AI calls
+to those windows instead of invoking every agent throughout the session. The
+strategy must not call the model on every Python iteration.
+
+Pure clock scheduling around the whole AI decision cycle is valid for AI-only
+requests. It does not choose setups, interpret research, size positions or
+submit orders. Every scheduled decision cycle still runs all upstream roles
+and the terminal trader. A polling interval or a daily sleep alone does not
+implement multiple named windows. Use the framework's scheduling/lifecycle
+callbacks or a clock-and-last-window check before the whole team. Never put a
+Python gate between the researcher and trader based on research content or
+market/account data. The minimal daily example below illustrates one daily
+cycle; adapt its scheduling when the user requests several distinct windows.
+
+A hard date is not a retry window. When the user says an entry may occur on one
+exact date or says "only" that date, put the same boundary in `rules.json` and
+the terminal trader's saved prompt. If required quotes, data, or order readiness
+are absent on that date, the trader must hold rather than trade on a later date.
+It may inspect later dates for reporting or exit management only when the saved
+rules permit that. A broader fallback window is a strategy change that requires
+the user's approval; a first-cycle filled-trade target never supplies that
+approval.
+
+Never silently build a one-minute AI decision loop. A regular US session has
+about 390 minutes, so one upstream researcher plus one terminal trader produces
+at least 780 initial model calls per day at `1M`, before retries and tool-loop
+continuations. For intelligent decisions more often than hourly, recommend
+Python or hybrid and explain the resulting credit, latency, and provider-limit
+risk before saving code. This warning is advisory. Proceed with frequent AI
+after the user explicitly confirms it once; an earlier explicit statement accepting
+the cost and frequency counts, and the Agent must not keep demanding confirmation,
+block the build, or silently substitute Python.
+
+A strategy may use a faster deterministic Python cadence for broker/order-state
+reconciliation or a narrow time-window trigger without making the intelligent
+decision cadence equally fast. This is the normal hybrid design: track the last
+completed AI decision and invoke the team only in the intended decision
+windows. Classify the design from the intelligent-decision and reaction-time
+requirements, not `sleeptime` alone. If sub-minute or continuous signal
+reaction is essential, recommend deterministic Python or hybrid while
+retaining the terminal risk/trader boundary for any AI-owned orders. Do not
+silently change an existing strategy's cadence or architecture; explain the
+tradeoff and preserve the user's choice.
+
+
+## Explicit Design Mandate Compliance
+
+Encode unrestricted or broad mandates exactly when the user states them (for example
+"fully unrestricted trader", "no artificial risk caps", "no forced stop-losses", or
+"do not add safer constraints I did not ask for"). Put that mandate into the saved
+agent `system_prompt` and `rules.json`. Do not argue, debate, lecture, or override
+those constraints with safer/more conservative defaults. Preserve mandatory minima,
+maxima, eligible assets, agent roles, cadence and model/reasoning in both Rules and
+executable agent prompts. "At least N funded holdings after construction" remains
+that minimum; do not turn it into "prefer N", "when evidence permits", or "if the
+account is large enough". Genuine lack of buying power, available instruments or
+authorized orders must be reported as an unmet requirement, never hidden by
+weakening the mandate or manufacturing filler trades. Reasonable discretionary
+selection happens within the requested constraints.
+
+First-cycle practicality may shorten the test window and prompts. It cannot shrink
+an explicitly open universe, reduce the requested agents, or relax a portfolio
+requirement. Before saving, compare each mandatory user requirement with its
+actual instructions and configuration; preserve it without unrequested exceptions.
+Do not invent risk caps, forced stops or asset bans the user rejected.
+
+## Critical New-Build Contract
+
+When the current user asks to build/create/make a new AI trading team,
+investment committee, sector pod, named-investor team, or Citadel-style AI
+strategy, do not jump straight from this skill to `create_strategy`. First load
+`lumibot-strategy-building` when visible, then create the visible first-build plan
+with `create_plan`. The valid first-build shape is:
+
+`skills get("lumibot-strategy-building")` -> `create_plan` -> first-build research
+when required -> `create_strategy` -> verify its workspace attachment ->
+targeted `get_file` -> `replace_file` with a complete real AI-team `main.py` ->
+`get_file` readback of the edited revision -> complete the implementation row
+with `update_plan_item` -> start the existing launch row with `update_plan_item`
+-> `start_backtest` -> `record_external_wait_in_plan` completes the launch row
+and waits the existing result-review row. Each plan transition waits for the
+previous tool result; do not launch while implementation is still in progress.
+
+When `create_strategy.conversationUpdate` attaches the returned workspace,
+use conversation-scoped file calls: `get_file(path="main.py")`, then its fresh
+`editHandle` for the save and `get_file(path="main.py")` for readback. Omit the
+redundant strategy/revision UUIDs on supported file tools; the server resolves
+the owned active revision after each write. Verify that the readback matches
+the returned write revision. If attachment failed or the request targets a
+historical/different workspace, use the complete exact returned IDs instead.
+Never construct a revision ID by combining a remembered prefix with a new suffix.
+
+Exception: when the request context already attaches a strategy with
+`workflowContext.firstCycle=true` or `workspaceStatus="neutral_starter"`,
+BotSpot already created the workspace for this build. Skip `create_strategy`;
+use the attached ids for `get_file` -> `replace_file` -> `get_file` readback ->
+`start_backtest`.
+
+For `record_external_wait_in_plan`, omit unused optional `currentItemTarget`
+and `waitingItemTarget` fields. These accept complete target objects, not null.
+Copy each supplied target discriminator and identity from the actual plan.
+
+When `record_external_wait_in_plan` succeeds and its result says the current
+start row is completed and the validation row is waiting, that helper already
+performed both plan mutations. Do not call `get_active_plan`,
+`update_plan_item`, or `replace_plan_items` to repeat them. Immediately call
+`backtest_status` with the exact returned backtest UUID.
+
+If first-build web research is partial or unavailable, record that outcome on
+the existing research plan item and continue to the existing workspace item.
+Never call `add_plan_item`, `replace_plan_items`, or `remove_plan_item` to add,
+reorder, or split out a completed research fallback/limitation row. The
+original plan already contains the complete build sequence.
+
+`remove_plan_item` is never part of a new AI-team build. If an earlier mistake
+created a redundant row, leave it visible and reconcile the plan with the
+permitted update tools; do not call an unavailable removal scope. Likewise,
+never probe `rules.json` blindly with `get_file`. Use `list_files` first; its
+returned path inventory is the authority for whether `rules.json` exists.
+
+Plan progress is strictly sequential. Never start a later row while an earlier
+row is still `in_progress`, and never emit two independent plan mutations in
+one assistant action. Complete the current row with one `update_plan_item`,
+wait for its returned plan, then start the next existing row with another
+`update_plan_item`. Plan patches do not need a strategy `revisionId`; omit it
+instead of manually copying an opaque code revision into plan metadata.
+Target each existing row by the one-based position returned by `create_plan`
+or the latest successful plan result. Copy that returned position exactly;
+this avoids retyping and corrupting an opaque UUID. Skipped rows still occupy
+their returned position, so do not infer a later target by counting completed
+domain actions. Use an exact returned item id only when the relevant result
+omitted the position.
+
+Treat strategy, revision, backtest, AI-strategy, plan, order, and deployment
+identifiers as copy-only values. Copy each complete value from one successful
+tool result into the next call; never reconstruct it from memory or another
+identifier. Do not issue multiple identifier-bearing file or revision calls in
+the same assistant action. Make one call, verify its result, then make the next
+call so every repeated identifier can be copied literally.
+
+Every completed-row entry in `update_plan_items.updates[]` must use this exact
+shape: `{"target": {...}, "patch": {"status": "completed", "outcome":
+{"status": "satisfied|partial|unsuccessful", "summary": "...",
+"evidence": {...}}}}`. Never place `evidence` directly inside `patch`, and
+never omit `outcome` when setting `status` to `completed`. Re-read the complete
+serialized batch for that invariant before sending it.
+
+For a new AI trading-team build, use `update_plan_item` for ordinary progress
+transitions. Emit at most one plan mutation in a model response and wait for
+its returned plan before choosing the next transition. Use
+`update_plan_items` only to repair an already inconsistent plan when one atomic
+replacement is required. Do not add, remove, reorder, or replace plan rows
+merely because a research tool returned limited evidence; record that
+limitation as evidence on the existing research row.
+
+For a new AI trading-team build, do not use `patch_file` as the first real
+`main.py` implementation after reading the neutral starter. The starter can
+contain placeholder imports/classes/harness code, and patching into it can leave
+duplicate runner blocks or stale `BotSpotStrategy` code. Use `replace_file` for
+the first full AI-team implementation. Reserve `patch_file` for later targeted
+edits to an already-real saved strategy.
+
+For the remainder of that same new-build turn, keep every `main.py` correction
+on the complete-file path: after `create_strategy`, do not call `patch_file`
+anywhere later in that same build turn. If a sibling Rules write advances the
+revision or a readback exposes an omission, read the newest `main.py` and use
+one complete `replace_file` with its current edit handle.
+
+After that first replacement, wait for its result and read the complete saved
+file before deciding whether another edit is necessary. Never issue a repair
+patch from the starter's old edit handle or in parallel with the replacement.
+If the readback needs a broad correction, use one complete `replace_file` with
+the fresh readback handle rather than a speculative multi-operation patch.
+
+If the user explicitly asks to build an AI trading team but does not name a
+universe, do not stop for a universe clarification. Use a small, liquid,
+diversified ETF universe such as SPY, QQQ, IWM, TLT, and GLD as the first
+practical default, state that choice in the saved strategy description, and
+continue through implementation and validation. Ask only when a missing choice
+would make the requested build unsafe or impossible.
+
+When saving `rules.json`, use the current human-readable Rules contract rather
+than legacy `text`/`enabled` objects. Each rule needs `id`, `status: "active"`,
+`raw_quote`, `interpretation`, `source`, `created_by`, `last_edited_by`, and
+`edit_history`. Read `strategy-rules` before creating that file and validate the
+whole JSON object before the first file call.
+After `create_strategy`, call `list_files`. If its returned inventory contains
+`rules.json`, read that exact file and use `replace_file` with the fresh edit
+handle. If the inventory does not contain `rules.json` and the user requested
+Rules, use `create_file`. Never call `create_file` for a path that `list_files`
+or `get_file` returned.
+Each file write creates a revision of the whole workspace and preserves the
+other files. After a successful `create_file`, that path exists in subsequent
+revisions unless it was explicitly deleted. Editing `main.py` does not remove
+an existing Rules or helper file. To change a file you already created, read
+it from the latest revision and use `replace_file` or `patch_file` with its
+fresh edit handle; do not call `create_file` again. A listing taken before the
+creation no longer establishes that the path is missing.
+
+Saving `main.py` does not create `rules.json`. Carry the returned path inventory
+forward when saving the sibling Rules file: an absent path still requires
+`create_file`, not `replace_file` with an empty handle. Never send an empty or invented `editHandle`.
+For an existing Rules file, first read that exact path at the latest revision
+and copy its returned handle; a `main.py` handle cannot authorize a Rules edit.
+After the Rules save, read back both files from its returned revision and check
+that the saved role prompts and Rules agree on the requested decision windows,
+trade economics and responsibilities. Do not acknowledge a known saved-code/prompt mismatch as remaining work
+when the authorized correction is available: correct that mismatch, read back
+the final coherent revision, and then start validation.
+
+If a new AI trading-team build uses `patch_file` anyway and the readback is
+partial, truncated, tail-only, missing imports, missing the strategy class,
+missing the agent/team implementation, or otherwise not a complete executable
+`main.py`, the build is not saved correctly even if the patch returned a revision
+id. Immediately call `replace_file` with the complete AI-team implementation,
+read that replacement back, and only then start validation or final-answer.
+
+A `create_strategy` call before a visible plan is only valid if the current
+user explicitly asked for an empty workspace/import/copy with no implementation
+or validation work. For normal AI-team builds, no visible plan means the build
+workflow is incomplete even if code and validation tools later run.
+
+## AI-owned decision contract
+
+For ordinary new automation and when the user asks for AI-only, agent-only, no
+hybrid logic, or says Python should only create and run the agent, this contract takes
+priority over deterministic strategy-building guidance:
+
+- Load this skill. Do not load `options-strategies`, including for options
+  or multi-leg strategies. The agent uses LumiBot's generic built-in market,
+  account, options, position, and order tools directly.
+- Generate a minimal strategy class with at least one upstream non-trading
+  researcher and exactly one terminal trading/risk agent. `on_trading_iteration()`
+  runs the upstream agent, passes a bounded evidence packet, then invokes the
+  terminal trader. Normal imports and the standard backtest harness are allowed.
+- Do not import or instantiate `OptionsHelper`. Do not retrieve chains, select
+  contracts, calculate Greeks or prices, size positions, construct orders,
+  evaluate entries or exits, parse agent output into trades, or manage positions
+  in Python.
+- Put only the strategy-specific trading policy in the agent's system prompt:
+  objective, valid instruments, entry and exit policy, position and risk limits,
+  cadence, and any user-specific constraints. Do not copy generic stock or
+  options mechanics into every saved strategy prompt.
+  Role ownership is explicit: the trading agent's saved prompt requires fresh
+  account/position/open-order, exact-contract, executable-price, liquidity and
+  risk evidence immediately before action, preserves the requested atomic risk
+  structure, and verifies the returned broker outcome after submission before
+  claiming execution. Refer to runtime skills for the exact workflow;
+  an upstream researcher's instructions do not assign the trader's obligations.
+- Preserve the user's package orientation and opening cash flow in both the
+  saved role policy and active Rules: net debit and net credit are different
+  requested structures. An example's default orientation never overrides the
+  user's long/short mandate. Keep contract selection and order construction
+  agent-owned; Python does not translate those directions into trades.
+- LumiBot exposes its built-in `stock-trading` and `options-trading` skills to
+  every agent through ADK `SkillToolset`. The LumiBot runtime instructs the
+  trading agent to load the matching skill when an asset becomes relevant. The
+  BotSpot builder does not need to predict the asset class. A broad agent may
+  decide to trade an option during its run and then load `options-trading`
+  itself before acting.
+- Generic chain inspection, exact-contract validation, Greeks and liquidity,
+  multi-leg construction, signed close sides, current-price readiness, pending
+  order reconciliation, atomic submission, and post-submit verification belong
+  to those LumiBot runtime skills and built-in tool descriptions. They do not
+  belong in the saved strategy system prompt.
+- Default new trading agents to the model marked (default) in the CURRENT AI
+  MODELS table at the end of the system prompt unless the user selects another
+  model. Write its exact id from that table.
+- Do not simplify a complex multi-leg request into a single-leg or deterministic
+  shortcut.
+
+Minimal AI-owned trading shape:
+
+```python
+from pathlib import Path
+
 from lumibot.strategies.strategy import Strategy
 
 
-class AIResearchTraderStrategy(Strategy):
+class AIOnlyOptionsStrategy(Strategy):
     def initialize(self):
-        self.sleeptime = "1D"  # one AI decision cycle per trading day
-        self.vars.last_research = None
-
+        self.sleeptime = "1D"
         self.agents.create(
             name="researcher",
+            model="<default model id from CURRENT AI MODELS>",
             allow_trading=False,
-            allow_network=True,  # research may search and read the web
-            system_prompt=(
-                "You research a small ETF universe: SPY, QQQ, IWM, TLT, GLD. "
-                "Use market history, indicators and recent news. Return a short "
-                "evidence packet: your view on each ETF, the observed prices you "
-                "used, the main risks, what would change your mind, and any "
-                "evidence you could not find. Never trade."
-            ),
+            system_prompt="""Research the setup and return a bounded evidence packet. Never trade.""",
+            rules_path=Path(__file__).with_name("rules.json"),
         )
         self.agents.create(
-            name="trader",
+            name="risk_trader",
+            model="<default model id from CURRENT AI MODELS>",
             allow_trading=True,
             system_prompt=(
-                "You are the only agent that trades, and you own risk. Read the "
-                "research, check the account, then place or skip the orders "
-                "yourself. Only trade SPY, QQQ, IWM, TLT and GLD. Never put more "
-                "than 40% of the account in one ETF. Hold cash when the research "
-                "is weak or mixed. Sell a position when the reason you bought it "
-                "no longer holds. Say which research points you accepted or "
-                "rejected and why."
+                "You are the only agent that trades, and you own risk. Read the research, decide, "
+                "and place or skip the orders yourself. Independently refresh current account "
+                "state, positions and open orders immediately before acting; revalidate exact "
+                "contracts, executable prices, liquidity and risk. Preserve the requested atomic "
+                "structure. Inspect the actual returned order status and resulting positions "
+                "before claiming execution. Risk rules: never put more than 40% of the "
+                "account in one position; hold cash when the research is weak or mixed; cut a "
+                "position when the reason you bought it no longer holds."
             ),
+            rules_path=Path(__file__).with_name("rules.json"),
         )
 
     def on_trading_iteration(self):
         context = {"current_datetime": self.get_datetime().isoformat()}
         research = self.agents["researcher"].run(
-            task_prompt="Research today's setup and return your evidence packet.",
-            context={**context, "previous_research": self.vars.last_research},
+            task_prompt="Research one strategy cycle and return a bounded evidence packet.",
+            context=context,
         )
-        self.vars.last_research = research.summary
-        self.agents["trader"].run(
-            task_prompt="Review the research and the account, then trade or hold.",
+        self.agents["risk_trader"].run(
+            task_prompt="Revalidate the evidence, manage risk, and execute or hold.",
             context={**context, "research": research.summary},
         )
 ```
 
-Important details:
-
-- **`allow_trading` defaults to `True` in LumiBot.** Always pass
-  `allow_trading=False` explicitly on every research, critic and pod agent.
-- Create each agent once in `initialize()`. Never recreate agents per iteration.
-- `model` is optional. Omit it to use LumiBot's current default model, or pass
-  the exact model id the user chose. See "Models and API keys".
-- Keep `on_trading_iteration()` to agent calls and context passing. No
-  indicators, watchlists, fallback rules, manual order code, chart markers or
-  extra logging unless the user asked for them.
-
-## Agent API reference
-
-### Imports
-
-```python
-from lumibot.components.agents import BuiltinTools, MCPServer, agent_tool
-```
-
-### `self.agents.create(...)`
-
-Keyword arguments (all keyword-only):
-
-| Argument | Meaning |
-|---|---|
-| `name` | Unique agent name; access later with `self.agents["name"]`. |
-| `system_prompt` | The agent's job description and strategy policy. |
-| `model` (alias `default_model`) | Model id. Omit for LumiBot's default. Pass only one of the two. |
-| `allow_trading` | Defaults to `True`. Set `False` on every non-trading agent. |
-| `allow_network` | Grants outbound network tools (web search, HTTP, document reader, RSS, browser). Off by default. Give it to research agents only. |
-| `tools` | Extra tools: `@agent_tool` methods or `BuiltinTools` entries. Built-in tools stay included. |
-| `mcp_servers` | List of `MCPServer` objects for hosted data sources. |
-| `rules_path` | Path to the strategy's `rules.json`; active rules are reloaded and injected before every call. |
-| `output_schema` | JSON Schema dict or pydantic model; the validated answer appears on `result.parsed`. |
-| `reasoning_effort` | One of `none`, `low`, `medium`, `high`, `xhigh`, `max`, where the model supports it. |
-| `max_output_tokens` | Leave unset; set only when the user explicitly wants to cap answer length. |
-| `run_timeout_seconds`, `model_request_timeout_seconds` | Optional time limits per run or per model request. |
-| `include_builtin_tools`, `include_builtin_skills` | Default `True`. Leave them on. |
-| `skill_dirs` | Extra folders of user-written agent skills (advanced). |
-
-### `self.agents["name"].run(...)`
-
-```python
-result = self.agents["researcher"].run(
-    task_prompt="What to do this cycle.",
-    context={"key": "value"},   # JSON-friendly values: dates, earlier summaries
-)
-```
-
-`run()` also accepts `model=` and `output_schema=` overrides for a single call.
-
-### `AgentRunResult`
-
-- `result.summary`: the agent's short final answer. This is what you pass on.
-- `result.text`: all text the agent produced, joined.
-- `result.parsed` / `result.parse_error`: the validated structured answer when
-  `output_schema` is set, or why it did not match.
-- `result.cache_hit`: whether a backtest replayed a recorded decision.
-- `result.tool_calls`, `result.tool_results`: the tool-call trace.
-- `result.warning_messages`: observability warnings.
-- `result.payload`: run bookkeeping such as `trace_path`. Never the answer.
-- `result.model`, `result.usage`, `result.latency_ms`: run metadata.
-
-Never parse `result.summary` or `result.text` with string searches or regexes.
-
-## Built-in tools and runtime skills
-
-Every agent gets LumiBot's built-in tools automatically, even when you pass a
-`tools` list. The main groups (tool names as the agent sees them):
-
-- **Account:** `account_portfolio`, `account_positions`.
-- **Market data:** `market_last_price`, `market_last_prices`,
-  `market_historical_prices`, `market_load_history_table`, `scan_bars`.
-- **Indicators:** `list_indicators`, `get_indicator`, `get_indicators`.
-- **Orders (trading agent only):** `orders_submit_order`,
-  `orders_submit_multileg`, `orders_open_orders`, `orders_get_status`,
-  `orders_wait_for_terminal`, `orders_modify_order`, `orders_cancel_order`,
-  `risk_calculate_stock_quantity`.
-- **Options:** `options_get_chain`, `options_find_expiration`,
-  `options_get_strikes`, `options_find_strike_for_delta`, `options_get_greeks`,
-  `options_calculate_multileg_price`, `options_check_spread_profit`,
-  `options_evaluate_market`.
-- **News:** `alpaca_news` (when Alpaca news credentials are available).
-- **SEC filings and fundamentals:** `get_filings`, `search_filing`,
-  `get_filing_document`, `list_filing_sections`, `get_filing_section`,
-  `get_company_facts`, `get_income_statement`, `get_balance_sheet`,
-  `get_cash_flow`.
-- **Macro (FRED):** `list_fred_series`, `get_fred_series`, `get_fred_latest`,
-  `get_fred_snapshot`.
-- **Memory and theses:** `remember`, `search_memory`, `remember_decision`,
-  `remember_proposal`, `remember_risk_note`, `remember_lesson`, `open_thesis`,
-  `update_thesis`, `close_thesis`.
-- **Data analysis:** `duckdb_query`.
-- **Network (only with `allow_network=True`):** `web_search`, `http_request`,
-  `read_document`, `rss_fetch`, and the `browser_*` tools.
-
-LumiBot also gives every agent built-in runtime skills: `stock-trading`,
-`options-trading`, `research-data` and `web-documents`. The agent loads the
-matching skill itself when an asset becomes relevant, so you do not need to
-predict whether a broad agent will trade a stock or an option. Those skills own
-the generic mechanics: fresh evidence before an order, exact-contract checks,
-multi-leg construction, pending-order reconciliation, atomic submission and
-post-submit verification. Keep that out of saved prompts.
-
-A missing news, FRED or other data key never blocks a build. Build with the
-tools that work, and tell the user once which saved key would add that data.
-
-### News with `alpaca_news`
-
-`alpaca_news` uses the active Alpaca broker connection when the broker is
-Alpaca. With another broker, it uses news-specific keys `ALPACA_NEWS_API_KEY`
-and `ALPACA_NEWS_API_SECRET`, kept separate so news access does not change
-broker routing. It searches by symbol and date window, not keyword. Useful
-guidance for a news-reading agent's prompt:
-
-- Scan headlines first with `include_content=False` (about 10 to 20 items for
-  one symbol, 30 to 50 for a broad scan), then re-read important stories with
-  `include_content=True` and usually `exclude_contentless=True`.
-- Use `page_token` when `next_page_token` is returned and more is needed.
-- For broad or sparse searches use ETF proxies: market `SPY,QQQ,DIA,IWM`; tech
-  `QQQ,XLK,SMH`; financials `XLF,KRE`; energy `XLE,USO`; healthcare `XLV,XBI`;
-  rates `TLT,IEF,SHY`; commodities `GLD,SLV,DBC`.
-- Do not act on one weak article; compare several and their timestamps.
-- In backtests, future end times are clamped to the simulated time and flagged
-  `lookahead_clamped`, which protects against look-ahead.
-
-## Writing good prompts
-
-**Research agents** get a crisp role and return a bounded evidence packet:
-thesis, exact candidates, observed prices, risks, what would change the view,
-and missing evidence. Tell them which kinds of sources to inspect (prices and
-positions, news, filings, macro indicators, risk regime). Writing "never
-trade" in the prompt is not enough; also set `allow_trading=False`.
-
-**The trading agent** gets the strategy's own policy, and only that:
-
-- objective and valid instruments
-- entry and exit policy
-- position and risk limits, written as sentences
-- cadence-related rules ("only open new positions between 10:00 and 11:30
-  New York time; otherwise manage or hold")
-- any user-specific constraint
-- "say which upstream advice you accepted or rejected and why", so the
-  per-agent backtest output is useful later
-
-Do not restate generic stock, options or order-tool mechanics. LumiBot's runtime
-skills and tool descriptions supply them, and they improve over time.
-
-**Hard dates.** When the user says an entry may happen only on one exact date,
-put that boundary in the trader's prompt and in `rules.json`. If data or quotes
-are missing that day, the trader holds rather than trading on a later date. A
-broader fallback window is a strategy change the user must approve.
-
-**Explicit mandates.** When the user states a broad mandate ("fully
-unrestricted", "no artificial risk caps", "no forced stop-losses"), encode it in
-the trader's prompt and `rules.json`. Do not override it with safer defaults or
-argue about it. You may still keep the first test small (fewer symbols, shorter
-prompts, fewer agents) so it can run quickly.
-
-## Strategy rules: `rules.json`
-
-BotSpot strategies can keep the user's rules in plain English in a
-`rules.json` file beside `main.py`. Bind it with `rules_path` on every agent and
-LumiBot reloads it and injects the active rules before every agent call. Do not
-paste the rules ledger into the system prompt.
-
-```python
-from pathlib import Path
-
-RULES = Path(__file__).with_name("rules.json")
-self.agents.create(name="trader", allow_trading=True, system_prompt="...", rules_path=RULES)
-```
-
-LumiBot validates the file before any model call:
-
-- top level is a JSON object with a numeric `version` and a `rules` array
-- each rule has a unique non-empty `id`, a `status` of `active`, `disabled` or
-  `deleted`, and a non-empty plain-English `interpretation`
-- optional `title` and `raw_quote` (the user's exact words) must be strings
-- no machine checks or verdicts: keys such as `check`, `verdict`, `overall` or
-  `audit` are rejected
-
-BotSpot's rules editor also tracks `source`, `created_by`, `last_edited_by` and
-`edit_history` on each rule. Include them when you create the file so the
-editor shows a clean history:
-
-```json
-{
-  "version": 1,
-  "rules": [
-    {
-      "id": "max-position-size",
-      "title": "Position size limit",
-      "status": "active",
-      "raw_quote": "never more than 40% in one ETF",
-      "interpretation": "Never let one ETF exceed 40% of total account value.",
-      "source": "user",
-      "created_by": "user",
-      "last_edited_by": "user",
-      "edit_history": []
-    }
-  ]
-}
-```
-
-Only `active` rules are runtime instructions. Disabled and deleted entries are
-history. Validate the whole JSON before saving it. Rules carry the user's
-instructions into the AI; they do not make decisions deterministic and do not
-guarantee any result.
-
-## Cadence and cost
-
-Each agent call is a model call, so cadence drives cost and speed.
-
-- Default new AI strategies to one decision cycle per day (`sleeptime = "1D"`).
-- For intraday ideas, use the coarsest cadence that can see the setup, normally
-  no more often than hourly. An hourly agent can still read minute bars.
-- Faster AI cycles (`30M`, `10M` or less) are a deliberate choice, not a
-  default. A regular US session has about 390 minutes, so a two-agent team at
-  `1M` makes at least 780 model calls per day before retries. Explain the
-  credit, latency and provider rate-limit cost and get the user's explicit
-  confirmation once before saving it. After that, build what they asked.
-- Every agent is called on every iteration. If you want fewer AI decisions, use
-  a slower `sleeptime`, not `if` statements that skip agents. Put time-of-day
-  entry windows in the trader's prompt.
-- If the AI is too slow, reduce the number of research agents, the universe and
-  the prompt size before anything else. Keep at least one researcher and the one
-  trader.
-- If the strategy truly needs sub-minute reaction, it is not a good fit for an
-  AI-only design. Recommend a Python or hybrid design and explain the tradeoff.
-
-## Custom tools with `@agent_tool`
-
-Use a custom tool only when the user names a real provider or API LumiBot does
-not already cover, uploads reference code, or explicitly asks for an
-integration. Never invent placeholder APIs, fake URLs or new key requirements
-to satisfy "give it news" or "give it more tools".
-
-The decorator registers a strategy method as a tool, builds its schema from type
-hints and the docstring, and includes the function's source in the description
-the model sees. Always write a Google-style docstring with an `Args` section.
-
-```python
-import os
-import requests
-from lumibot.components.agents import agent_tool
-
-
-@agent_tool(
-    name="get_economic_indicator",
-    description="Fetch a US economic indicator series from Alpha Vantage.",
-)
-def get_economic_indicator(self, indicator: str) -> dict:
-    """Fetch a US economic indicator.
-
-    Args:
-        indicator: Alpha Vantage function name, for example REAL_GDP or CPI.
-
-    Returns:
-        The provider's JSON response.
-    """
-    resp = requests.get(
-        "https://www.alphavantage.co/query",
-        params={"function": indicator, "apikey": os.environ.get("ALPHAVANTAGE_API_KEY")},
-        timeout=15,
-    )
-    return resp.json()
-
-# in initialize():
-self.agents.create(
-    name="macro_researcher",
-    allow_trading=False,
-    system_prompt="Use economic data to describe the current macro regime. Never trade.",
-    tools=[self.get_economic_indicator],
-)
-```
-
-The tool returns raw provider data to the agent. It must not filter, score or
-decide; the agent interprets the data. FRED is already built in, so prefer the
-built-in FRED tools over a custom FRED wrapper.
-
-### Hosted MCP servers (advanced)
-
-```python
-from lumibot.components.agents import MCPServer
-
-MCPServer(
-    name="my-data-source",
-    url="https://my-mcp-server.example.com/mcp",
-    exposed_tools=["tool_a", "tool_b"],
-    timeout_seconds=120,
-)
-```
-
-Pass the list with `mcp_servers=[...]` in `self.agents.create(...)`. Built-in
-tools stay included. Keep credentials out of source code: read them from saved
-environment variables (the `MCPServer` also accepts `headers` and
-`auth_token_env`).
-
-## Structured answers (optional, rarely needed)
-
-By default agents talk to each other in plain language and the trader places
-trades itself. Use `output_schema` only when Python must read an agent's answer
-as data, for example a research-only report the user wants as a table. It never
-changes who places orders.
-
-```python
-VERDICT = {
-    "type": "object",
-    "properties": {
-        "symbol": {"type": "string"},
-        "verdict": {"type": "string", "enum": ["PASS", "VETO"]},
-        "reason": {"type": "string"},
-    },
-    "required": ["symbol", "verdict", "reason"],
-}
-
-self.agents.create(
-    name="analyst",
-    allow_trading=False,
-    system_prompt="Review one stock and give a PASS or VETO verdict.",
-    output_schema=VERDICT,
-)
-
-result = self.agents["analyst"].run(task_prompt="Review AAPL.")
-if result.parsed is None:
-    self.log_message(f"No usable verdict: {result.parse_error}", color="red")
-else:
-    self.vars.last_verdict = result.parsed
-```
-
-A pydantic `BaseModel` class also works; `result.parsed` is then an instance.
-
-## Models and API keys
-
-- **On BotSpot**, AI strategies run through BotSpot's managed AI in backtests and
-  live bots, billed in BotSpot credits. The user does not need a personal model
-  provider key, whatever provider prefix the model id has. If a backtest or bot
-  start reports missing secrets, that list is the authority on what is needed.
-- **Self-hosted LumiBot** (outside BotSpot) needs the model provider's own API
-  key for the chosen model, even when the strategy code never reads it.
-- Use current models. Omit `model` to get LumiBot's default, or use the exact id
-  the user picks. Avoid very old model generations; if the user insists on one,
-  mention once that it is old, then use what they asked for.
-- Data keys (Alpaca news, an Alpha Vantage key for a custom tool) are separate
-  from model keys. On BotSpot, save them with `saved_env_vars` and attach them
-  with `envVarSetIds` on `start_backtest` or `start_deployment`. Never print raw
-  key values.
-
-## Backtesting AI strategies
-
-- **Keep the first test short.** Every simulated iteration may call models. A
-  week is a good first window for a daily strategy, one or two days for an
-  intraday one. Warn the user about cost before long or expensive runs.
-- **Point-in-time evidence only.** Do not present current web or news results as
-  historical evidence. LumiBot clamps built-in news and data tools to the
-  simulated time. Web pages fetched during a backtest may be newer than the
-  simulated date; tell the agent to prefer dated sources and to treat undated
-  pages carefully, and disclose that limitation to the user.
-- **Replay cache.** Backtests can replay recorded agent decisions
-  (`result.cache_hit`). A replay tests that recorded path; fresh model calls may
-  decide differently and cost credits.
-- **Check `agent_health` before trusting results.** Provider rate limits
-  (HTTP 429) are retried. If a bar still gets no AI decision, the log says
-  `BACKTEST INCOMPLETE`, the parameters show `agent_<name>_skipped_runs`, and
-  `settings.json` has `agent_health` with `complete: false`.
-- **A hold is a valid result.** A holiday, missing evidence or "no signal" hold
-  is not a failure. Never add a fake trade (for example an
-  `if self.is_backtesting:` order) to make a test show a fill, and never change
-  quantities, signals or budgets just to get a fill.
-- **If the first run is slow**, shrink the universe, the number of research
-  agents and the prompts. Do not add more roles or a bypass trade.
-- **Data warmup.** If the first allowed trade is on the backtest's first date and
-  needs historical bars, start the backtest one session earlier and describe
-  that as warmup, not an extra trading day.
-- **Read the agent output.** The backtest artifacts include per-agent detail
-  (for example `agent_detail.parquet`) showing each role's output and the
-  trader's reasoning. Inspect it with `get_backtest_artifact` or `query_csv`
-  where available, and `get_backtest_logs` for provider or runtime errors.
-
-## Building it on BotSpot (public MCP tools)
-
-1. **Create the workspace:** `create_strategy` with a name and a short
-   description that says what the agents do and any first-version
-   simplifications. It returns neutral starter files and ids.
-2. **Read before writing:** `get_file` on the returned `main.py`. Use
-   `list_files` to learn whether `rules.json` exists before reading or creating
-   it.
-3. **Write the full implementation:** use `replace_file` for the first complete
-   AI-team `main.py` (the starter is placeholder code, so a whole-file replace
-   is cleaner than patching it). Include `rules_path` from the start if you will
-   add `rules.json`. Use `patch_file` later for targeted edits to real code.
-4. **Rules:** if `list_files` shows no `rules.json` and the user gave rules,
-   `create_file`; if it exists, `get_file` then `replace_file`.
-5. **Read back:** `get_file` on the newest revision and confirm the file is
-   complete (imports, class, both agents, `allow_trading` set correctly).
-6. **Validate:** `start_backtest` on the newest revision with a short date range,
-   then `backtest_status` with the returned id. Use `get_backtest_logs` and
-   `get_backtest_artifact` to diagnose. A missing personal model key is not a
-   reason to skip validation on BotSpot.
-7. **Iterate:** `list_revisions` and `set_strategy_revision` to move between
-   versions.
-8. **Go live only with the user.** `start_deployment` starts a real bot; the user
-   reviews and approves deployments and trades on botspot.trade. Never start one
-   on your own initiative, and always state whether the account is paper or real
-   money.
-
-Copy every strategy, revision and backtest id exactly from the latest tool
-result. Never retype or reconstruct an id from memory.
-
-To learn from public examples, `marketplace_strategies` and `clone_strategy`
-let the user start from a published strategy.
-
-## When the user wants Python to place the orders
-
-Follow the user. If they explicitly want code-owned signals and orders, build
-that: every agent `allow_trading=False`, and Python owns signals and orders by
-the user's rules. That is a hybrid or Python strategy, not an AI-only one, so
-use `lumibot-strategy-building` for the Python side. When you describe the saved
-design, include one plain sentence on the tradeoff: an AI trading agent usually
-places the orders because order code tends to miss edge cases (for example a
-symbol like `BRK.B`), and this build keeps orders in Python because the user
-chose that. Do not refuse, nag or repeat it. Do not force existing Python
-strategies to become AI strategies either.
-
-## Common mistakes
-
-- Forgetting `allow_trading=False` on research agents (LumiBot defaults to
-  `True`), which creates several order owners.
-- One agent that researches and trades.
-- Python that fetches data, computes indicators, filters a universe or sizes
-  positions before handing a "pre-digested" packet to the agent.
-- Parsing `result.summary` and then calling `create_order` or `submit_order`.
-- `if` statements that skip an agent on some iterations.
-- Copying generic order mechanics (check positions, then price, then submit,
-  then verify) into every saved prompt.
-- Giving network tools to the trading agent.
-- Inventing data APIs or key requirements the user never asked for.
-- A one-minute AI loop the user never confirmed.
-- A fake proof trade in backtests.
-- Treating current web content as historical evidence.
+BotSpot's canonical `rules.json` belongs beside `main.py`. Pass it through
+`rules_path` so LumiBot reloads and injects active rules before every agent call.
+For an AI-team first build, include `rules_path` in the first complete `main.py` replacement before saving `rules.json`. The Rules write then becomes the newest
+whole-strategy revision; do not return to patch `main.py` merely to add the
+binding that should have been present in the initial replacement.
+Do not serialize the rule ledger into the system prompt. Disabled, deleted, and
+audit-only entries are not active runtime instructions.
+
+When building an explicit AI-only iron condor, credit spread, ORB, or VWAP
+strategy, also load:
+
+- `references/ai-only-scaffolds.md` for parameterized prompt scaffolds;
+- `references/ai-only-order-verification.md` for post-submit self-checks.
+
+For a parameterized AI iron condor, preserve its opening direction: for a
+long/net-debit condor, buy the inner put and call and sell the outer put and call;
+the short/net-credit condor uses the opposite legs. Buying outer wings and
+selling inner options remains a credit structure even if labeled long or debit.
+Read back the saved policy and Rules and correct any contradictory leg directions
+before validation. Put wing width, relevant leg delta, DTE window, an appropriate
+debit ceiling or credit floor, profit-take, stop-loss, max contracts, roll policy,
+and exposure limits in the agent prompt or run context. The LumiBot
+runtime skill supplies the reusable chain, leg, atomic-order, and verification
+workflow. Do not duplicate that workflow in the saved prompt, Python, or
+`OptionsHelper`.
+
+For AI-only ORB and VWAP, choose a cadence that can observe the requested setup
+without needless model calls. Hourly agent decisions may still analyze minute
+bars. Keep Python minimal and put opening-range or session-VWAP policy entirely
+in the agent prompt. The runtime `stock-trading` skill owns reusable evidence,
+order, pending-order, and verification mechanics.
+
+
+
+The shared guide continues in the ordered resources below. Load the relevant continuation; these are complete source sections, not summaries.
+
+- Part 2: `references/shared-guide-02.md`

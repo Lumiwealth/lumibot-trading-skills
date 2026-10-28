@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # Editing an existing BotSpot strategy
 
 Use with the `lumibot-strategy-building` skill whenever you change saved

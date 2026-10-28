@@ -1,3 +1,4 @@
+# PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
 """IO-free example: one operation's fills across multiple order attempts.
 
@@ -19,6 +20,20 @@ def quantity(value: Any) -> Decimal:
     return result
 
 
+def long_position_quantity(value: Any) -> Decimal:
+    """Long inventory available to sell; signed positions are not fill quantities."""
+    try:
+        signed = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise ValueError("Invalid position quantity") from exc
+    if not signed.is_finite():
+        raise ValueError("Invalid position quantity")
+    return max(Decimal(0), signed)
+
+
+held_long_quantity = long_position_quantity
+
+
 class Attempt(TypedDict):
     objects: list[Any]
     aliases: set[str]
@@ -28,6 +43,7 @@ class Attempt(TypedDict):
     order: Any
     lookup_order: Any
     cancel_requested: bool
+    provisional_id: str
 
 
 class Step(TypedDict):
@@ -56,8 +72,14 @@ class OperationFills:
         return max(Decimal(0), self.target - self.filled)
 
     @property
+    def execution_excess(self) -> Decimal:
+        return sum((max(Decimal(0), a["filled"] - a["requested"])
+                    for a in self.attempts), Decimal(0))
+
+    @property
     def complete(self) -> bool:
-        return self.filled == self.target and all(a["terminal"] for a in self.attempts)
+        return (self.execution_excess == 0 and self.filled == self.target
+                and all(a["terminal"] for a in self.attempts))
 
     def _attempt(self, order: Any) -> Attempt | None:
         identifier = str(order.identifier) if order.identifier is not None else None
@@ -67,6 +89,8 @@ class OperationFills:
                      or identifier is not None and identifier in a["aliases"]), None)
 
     def register(self, order: Any) -> int:
+        if self.execution_excess:
+            raise ValueError("Observed execution requires reconciliation before another attempt")
         if self._attempt(order) is not None:
             raise ValueError("Attempt is already registered")
         if any(not a["terminal"] for a in self.attempts):
@@ -77,7 +101,7 @@ class OperationFills:
         self.attempts.append({"objects": [order], "aliases": {str(order.identifier)},
                               "requested": requested, "filled": Decimal(0),
                               "terminal": False, "order": order, "lookup_order": order,
-                              "cancel_requested": False})
+                              "cancel_requested": False, "provisional_id": str(order.identifier)})
         return len(self.attempts) - 1
 
     def accepted(self, token: int, returned_order: Any) -> None:
@@ -92,8 +116,17 @@ class OperationFills:
         attempt["aliases"].add(str(returned_order.identifier))
         if not any(o is returned_order for o in attempt["objects"]):
             attempt["objects"].append(returned_order)
-        attempt["order"] = returned_order
-        attempt["lookup_order"] = returned_order
+        # A callback may already have observed the broker-assigned identity.
+        # A stale synchronous return is still an attribution alias, never a
+        # reason to downgrade that canonical lookup or reopen completion.
+        current_id = attempt["lookup_order"].identifier
+        stale_return = (str(returned_order.identifier) == attempt["provisional_id"]
+                        and current_id is not None
+                        and str(current_id) != attempt["provisional_id"])
+        if not stale_return:
+            attempt["lookup_order"] = returned_order
+            if not attempt["terminal"]:
+                attempt["order"] = returned_order
 
     def current_order_id(self, token: int) -> str:
         # Native dispatch may mutate the object ID after submit returns.
@@ -110,11 +143,11 @@ class OperationFills:
         attempt = self._attempt(order)
         if attempt is None:
             return False
-        # LumiBot Order.transactions holds execution quantities (verify on your version).
+        # Pinned LumiBot Order.transactions contains execution quantities.
         # These are cumulative records for this order, not a fresh delta each read.
         reported = sum((quantity(fill.quantity) for fill in order.transactions), Decimal(0))
-        if reported > attempt["requested"]:
-            raise ValueError("Execution exceeds submitted quantity; reconcile evidence")
+        # Record authoritative evidence even when it exceeds the request. Never
+        # clamp it away; next_step surfaces reconciliation instead of trading on.
         attempt["filled"] = max(attempt["filled"], reported)
         attempt["order"] = order
         if order.identifier is not None:
@@ -128,7 +161,8 @@ class OperationFills:
         # Newly observed fills for a retired attempt can invalidate a replacement.
         # Dispatch cancel; do not resize in place or replace until terminal confirmed.
         return [a["lookup_order"] for a in self.attempts if not a["terminal"]
-                and a["requested"] - a["filled"] > self.remaining]
+                and (self.execution_excess > 0
+                     or a["requested"] - a["filled"] > self.remaining)]
 
     def unresolved_tokens(self) -> list[int]:
         # An old terminal observation never releases another attempt's slot.
@@ -153,12 +187,13 @@ class OperationFills:
         # original target minus confirmed cumulative fills, exactly once.
         for token in self.unresolved_tokens():
             attempt = self.attempts[token]
-            if (attempt["requested"] - attempt["filled"] > self.remaining
+            if ((self.execution_excess > 0
+                    or attempt["requested"] - attempt["filled"] > self.remaining)
                     and not attempt["cancel_requested"]):
                 return {"action": "cancel", "token": token, "quantity": Decimal(0)}
         if self.unresolved_tokens():
             return {"action": "wait", "token": None, "quantity": Decimal(0)}
-        if self.filled > self.target:
+        if self.filled > self.target or self.execution_excess > 0:
             return {"action": "reconcile", "token": None, "quantity": Decimal(0)}
         if self.complete:
             return {"action": "complete", "token": None, "quantity": Decimal(0)}
@@ -189,8 +224,9 @@ class RetainedOperations:
             if operation.observe(order):
                 # Run on EVERY matched observation, including completed entries.
                 # Merely archiving a higher fill total silently loses the alert.
-                if operation.filled > operation.target:
-                    self.reconciliation_required[entry_id] = operation.filled - operation.target
+                excess = max(operation.filled - operation.target, operation.execution_excess)
+                if excess > 0:
+                    self.reconciliation_required[entry_id] = excess
                 return entry_id, operation
         return None
 

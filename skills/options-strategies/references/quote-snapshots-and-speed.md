@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # Fast and Correct Option Scanners
 
 Part of the `options-strategies` skill. Use this when a strategy evaluates many

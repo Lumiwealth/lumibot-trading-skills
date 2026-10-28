@@ -1,104 +1,84 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # AI Trading Team Examples
 
-These are reference shapes, not rigid templates and not investment advice.
-Keep the user's own strategy intent first, then adapt the closest shape. Every
-shape follows the core rules: research agents with `allow_trading=False`, one
-trading agent that owns orders and risk, answers passed through `context`.
+These examples are reference shapes, not rigid templates. Preserve the user's
+requested strategy intent first, then adapt the closest pattern.
 
-## Public LumiBot examples to study
+## Canonical running examples
 
-LumiBot's open-source `lumibot/example_strategies/` folder includes AI team
-examples. Copy their structure, not their exact prompts:
+Two LumiBot examples are running and follow the team conventions. Copy their
+shape, not their exact prompts. Both live in LumiBot's
+`lumibot/example_strategies/` folder.
 
-- `ai_trading_team_ray_dalio_idea_meritocracy.py`: a macro regime team. Growth,
-  inflation and debt/liquidity researchers plus a disagreement critic, all
-  non-trading, then one `trader` that rebalances a diversified ETF basket with
-  plain-language rules (for example "hold at least three positions when risk is
-  on", a short-term Treasury ETF as ballast). Daily cadence; Python only creates
-  and runs the agents.
-- `ai_trading_team_citadel_sector_pods.py`: a sector pod team. Five sector
-  researchers and a non-trading risk critic, then one `portfolio_manager` that
-  trades a portfolio across three or more sector ETFs and must not go all-in on
-  one sector.
+- `ai_trading_team_ray_dalio_idea_meritocracy.py`: growth, inflation and
+  debt/liquidity researchers plus a `thoughtful_disagreement` critic, all
+  without trading, then one `trader` that rebalances a diversified ETF basket
+  with plain-language rules ("hold at least three positions when risk is on",
+  SHV as ballast). Daily cadence; Python only creates and runs the agents.
+- `ai_trading_team_citadel_sector_pods.py`: five sector pods and a non-trading
+  `risk_manager` critic, then one `portfolio_manager` that trades a 3+ sector
+  ETF portfolio and must not go all-in on one sector.
 
-The file names describe an investing style the examples are loosely inspired
-by. They do not reflect the holdings of, or an endorsement by, any person or
-firm. Some example files pin an older model id and carry long data-usage
-paragraphs written before LumiBot's runtime trading skills existed. For new
-builds, omit `model` or use a current one, and keep only the strategy's own
-rules in prompts. Examples that use a single agent plus a Python stop check are
-not reference shapes for AI-only builds.
+Both files still name an older model; new builds use the model marked
+(default) in CURRENT AI MODELS. Their long readiness and data-usage paragraphs predate
+LumiBot's runtime trading skills; new prompts keep only the strategy's own
+rules. `ai_iron_condor.py` (one agent plus a Python stop check) and the disclosure-following bots are not reference shapes yet.
 
-## Bull/bear leveraged ETF team
+## Bull/Bear Leveraged ETF AI Trading Team
 
-- Universe: leveraged long and inverse ETFs on broad indexes or sectors.
-- Roles: bull thesis, bear thesis, volatility and risk critic, final portfolio
-  manager.
-- Fits a user who wants aggressive directional decisions and accepts leverage
-  risk.
-- The trader's prompt states the maximum leveraged exposure and that it must
-  not repeat an entry already held or working.
+- Universe: leveraged long and inverse ETFs around broad indexes or sectors.
+- Useful roles: bull thesis agent, bear thesis agent, volatility/risk critic,
+  final portfolio manager.
+- Good fit when the user wants aggressive directional AI decisions and accepts
+  leverage risk.
+- For AI-only builds, require max leverage exposure and repeat-order prevention
+  in the final trading agent's prompt.
 
-## Bull/bear large-cap stock team
+## Bull/Bear Large-Cap Stocks AI Trading Team
 
-- Universe: liquid large-cap stocks.
-- Roles: bullish analyst, bearish analyst, earnings and news analyst, final
+- Universe: liquid mega-cap or large-cap stocks.
+- Useful roles: bullish analyst, bearish analyst, earnings/news analyst, final
   trader.
-- Fits stock selection rather than ETF allocation.
-- Start with a compact watchlist in the prompt; widen it after a first
-  successful backtest.
+- Good fit when the user wants stock selection rather than ETF allocation.
+- Use a compact watchlist for first smoke tests; broad universes can be added
+  after the first successful backtest.
 
-## Macro regime allocation team
+## Ray Dalio Idea Meritocracy AI Trading Team
 
-- Universe: diversified ETFs across equities, bonds, inflation hedges,
-  commodities, short-term Treasuries and international equity.
-- Roles: growth regime, inflation regime, debt and liquidity, disagreement
-  critic, final allocator.
-- The built-in FRED tools and `alpaca_news` give the researchers macro and news
-  evidence.
-- The allocator explains which upstream advice it accepted and rejected.
+- Universe: diversified ETFs such as equities, bonds, inflation hedges,
+  commodities, cash-like Treasury ETFs, and international equity proxies.
+- Useful roles: growth regime agent, inflation regime agent,
+  debt/liquidity agent, disagreement/risk agent, final allocator.
+- Good fit for macro allocation. Add real news or macro tools when requested
+  and when matching keys are available.
+- The final trading agent should explain which upstream advice it accepted and
+  rejected so `agent_detail` can support later analysis.
 
-## Quality and value team
+## Warren Buffett Value AI Trading Team
 
 - Universe: high-quality stocks or quality/value ETFs.
-- Roles: business-quality analyst, valuation analyst, moat and risk critic,
+- Useful roles: business-quality analyst, valuation analyst, moat/risk critic,
   final concentrated buyer.
-- Fits low-turnover, fundamentals-style selection.
-- The built-in SEC filing and financial statement tools (`get_filings`,
-  `get_income_statement`, `get_balance_sheet`, `get_cash_flow`) let researchers
-  read real fundamentals. Do not claim the team uses financial statements if
-  those tools return nothing for the chosen symbols.
+- Good fit for low-turnover, fundamental-style selection.
+- Avoid pretending to use financial statements unless the code includes a real
+  data source or uploaded dataset.
 
-## Concentrated conviction team
+## Bill Ackman Concentrated AI Trading Team
 
 - Universe: a small set of liquid, high-conviction stocks.
-- Roles: thesis analyst, downside and risk analyst, catalyst analyst, final
-  concentrated portfolio manager.
-- Fits a user who wants fewer positions and stronger opinions.
-- The trader's prompt states the maximum number of positions and the
-  concentration cap the user chose.
+- Useful roles: activist thesis analyst, downside/risk analyst, catalyst
+  analyst, final concentrated portfolio manager.
+- Good fit when the user wants fewer positions and stronger opinions.
+- For AI-only builds, the final trading agent's prompt should enforce max
+  position count and concentration caps when the user states them.
 
-## Public disclosure research team (synthetic example)
+## Citadel Sector Pods AI Trading Team
 
-A user may want an AI that reads dated public disclosures (for example insider
-transaction filings) and decides whether to act on them.
-
-- Roles: a filing researcher with `allow_network=True` that finds and reads the
-  relevant public documents itself, a timing and risk critic, final trader.
-- A short hint in the researcher prompt about where to look is fine ("SEC
-  EDGAR filings are a good starting point"). The agent browses, downloads and
-  reads. No Python that downloads, parses or filters filings.
-- Tell the researcher to use only documents dated on or before the simulated
-  date, and to report the filing date and the transaction date separately,
-  because disclosures arrive after the underlying transaction.
-- In backtests, tell the user that web content fetched during a run can be
-  newer than the simulated date, so results are an approximation.
-
-## Sector pods team
-
-- Universe: sector ETFs or liquid sector stocks.
-- Roles: sector specialist pods, market regime critic, risk critic, final
-  allocator.
-- Fits a user who asks for a multi-pod or sector-specialist structure.
-- Do not force every hedge-fund-style request into this exact shape. Use the
-  broader pod and critic idea for other team patterns.
+- Universe: sector ETFs or sector-specific liquid stocks.
+- Useful roles: sector specialist pods, macro/market-regime critic, risk
+  manager, final allocator.
+- Good fit when the user asks for a multi-pod or sector-specialist structure.
+- Do not force every Citadel-style request into this exact structure. If the
+  user asks for a different hedge-fund team pattern, use the broader pod and
+  risk-manager idea without pigeonholing it.

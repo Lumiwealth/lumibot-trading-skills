@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # Multi-Leg Option Structures in LumiBot
 
 Part of the `options-strategies` skill. Every description is per one package.

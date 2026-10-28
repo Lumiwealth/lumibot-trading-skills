@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # Mean Reversion Strategies
 
 Part of the `stock-etf-strategies` skill. Covers RSI oversold and overbought,

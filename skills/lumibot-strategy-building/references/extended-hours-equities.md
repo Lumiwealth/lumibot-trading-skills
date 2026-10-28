@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # US equity extended-hours strategies
 
 Use with the `lumibot-strategy-building` skill whenever a US stock or ETF

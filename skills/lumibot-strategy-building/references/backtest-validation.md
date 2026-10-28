@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # Backtest validation, diagnosis and repair
 
 Use with the `lumibot-strategy-building` skill when choosing a backtest window,

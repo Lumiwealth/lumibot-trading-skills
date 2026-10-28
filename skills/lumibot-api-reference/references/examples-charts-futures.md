@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # LumiBot examples: charts, futures, fees and quotes
 
 Charting with add_ohlc/add_line/add_marker, Heikin Ashi, crypto futures, explicit and continuous futures, backtest fee setup, quotes, smart limit orders, Greeks, live SMA and retroactive indicators.

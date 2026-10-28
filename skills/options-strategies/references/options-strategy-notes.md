@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # Options Backtest Made No Trades: Diagnosis and Repair
 
 Part of the `options-strategies` skill. Use this when an options backtest

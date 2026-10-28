@@ -55,10 +55,16 @@ def test_every_skill_has_valid_skill_md():
 
 
 def test_referenced_files_exist():
-    for folder in skill_dirs():
-        text = (folder / "SKILL.md").read_text(encoding="utf-8")
-        for ref in set(re.findall(r"references/[A-Za-z0-9_.-]+\.(?:md|py)", text)):
-            assert (folder / ref).is_file(), f"{folder.name}: {ref} is missing"
+    # Check the actual advertised resources. A guide can correctly state that a
+    # historical filename does NOT exist; matching every prose filename cannot
+    # distinguish that warning from a resource the client can load.
+    catalog = json.loads((ROOT / "catalog.json").read_text(encoding="utf-8"))
+    assert sorted(s["name"] for s in catalog["skills"]) == sorted(p.name for p in skill_dirs())
+    for skill in catalog["skills"]:
+        for ref in skill["references"]:
+            path = Path(ref["path"])
+            assert not path.is_absolute() and ".." not in path.parts
+            assert (SKILLS / skill["name"] / path).is_file(), f"{skill['name']}: {path} is missing"
 
 
 def test_marketplace_lists_every_skill():

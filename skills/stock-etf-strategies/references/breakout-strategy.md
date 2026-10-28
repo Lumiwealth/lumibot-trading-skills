@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # Breakout Strategies
 
 Part of the `stock-etf-strategies` skill. Covers channel and Donchian

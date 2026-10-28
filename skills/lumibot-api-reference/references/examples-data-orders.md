@@ -1,3 +1,5 @@
+> PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 # LumiBot examples: data, orders, positions and state
 
 Historical prices, quotes, last prices, VIX, option and crypto and forex orders, cash accounting, chains, delta strikes, positions, `self.vars`, `self.indicators` and `set_market`.
