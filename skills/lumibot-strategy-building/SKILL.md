@@ -1,7 +1,7 @@
 ---
 name: lumibot-strategy-building
 title: Building LumiBot Strategies on BotSpot
-description: Load this before writing, editing, fixing or backtesting any LumiBot trading strategy on BotSpot. It covers the full build workflow through the BotSpot MCP tools (create_strategy, get_file, patch_file, replace_file, start_backtest, backtest_status, logs and artifacts, revisions), strategy structure, cash-bounded sizing, order lifecycle and reconciliation, exits, data providers, backtest correctness checks and common mistakes.
+description: Use as the main direct-edit strategy-building skill for new BotSpot strategies and substantial strategy rewrites. Choose the decision owner first, preserving explicit architecture choices and the ordinary hourly/daily AI-owned default. It owns the build, plan, validation and final handoff. A fast Python/hybrid recommendation explains avoided AI round-trip latency and credit use. Load supported LumiBot API references only as needed.
 visibility: public
 license: MIT
 ---

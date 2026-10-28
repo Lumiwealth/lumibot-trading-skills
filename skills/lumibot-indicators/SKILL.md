@@ -1,7 +1,7 @@
 ---
 name: lumibot-indicators
 title: LumiBot Indicators and Charting
-description: Load whenever LumiBot strategy code computes technical indicators (SMA, EMA, RSI, MACD, Bollinger Bands, ATR, ADX, stochastic, VWAP, Supertrend, z-scores or custom rolling values), migrates hand-rolled pandas rolling calculations, or needs indicators, signals and trades to appear on the backtest chart with add_line, add_marker and add_ohlc, including debugging an empty or missing indicator chart.
+description: Use when LumiBot strategy code needs indicator computation, pandas-ta-classic helpers, self.indicators migration, charted indicator lines, trade markers, OHLC visualizations, or missing backtest indicator graph debugging. Not for a chart or indicator question answered in chat; that uses chart-artifacts and data-analysis.
 visibility: public
 license: MIT
 ---

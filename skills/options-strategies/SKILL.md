@@ -1,7 +1,7 @@
 ---
 name: options-strategies
 title: Options Strategies in LumiBot
-description: Load before writing, editing, debugging or backtesting any LumiBot strategy that trades options, including single calls or puts, covered calls, cash-secured puts, the wheel, vertical spreads, iron condors, butterflies, straddles, strangles, calendars, diagonals and ratio spreads, or when an options backtest makes no trades. Covers OptionsHelper, chains, expirations, strikes, greeks, liquidity checks, multi-leg orders, assignment and expiry handling, position management and options data on BotSpot.
+description: Use as the focused mandatory skill for LumiBot options code fixes, options no-trade rescue, OptionsHelper usage, options chains, option market evaluation, expirations/expiries, strikes, legs, spreads, liquidity, and spread order helpers. Load this exact skill before editing options code; lumibot-api-reference alone is not enough for options fixes.
 visibility: public
 license: MIT
 ---

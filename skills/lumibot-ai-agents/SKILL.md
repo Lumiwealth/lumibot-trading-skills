@@ -1,7 +1,7 @@
 ---
 name: lumibot-ai-agents
 title: AI-Powered LumiBot Strategies (LLM Agents That Research and Trade)
-description: Load when someone wants an AI-powered trading strategy, an AI trading bot, an LLM agent that trades, an AI trading team or investment committee, or any LumiBot strategy built with self.agents (research agents plus one trading agent). Covers the agent API, the one-trader team pattern, prompts, tools, rules.json, cadence and cost, backtesting AI strategies, and the BotSpot build and validation workflow.
+description: Builds AI-owned or hybrid BotSpot automation after cadence, latency, and the user's explicit architecture choice have been considered. Upstream prompts define a bounded evidence packet; exactly one terminal trading/risk agent owns orders.
 visibility: public
 license: MIT
 ---

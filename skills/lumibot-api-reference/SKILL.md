@@ -1,7 +1,7 @@
 ---
 name: lumibot-api-reference
 title: LumiBot API Reference
-description: Load when you need exact LumiBot API names, signatures, lifecycle methods, entities (Asset, Order, Position, Quote, Bars) or working code examples while writing, editing or debugging a LumiBot strategy. Covers orders, positions, prices, quotes, options chains and OptionsHelper, indicators, charting, cash accounting, components and AI agents.
+description: Use for LumiBot strategy APIs, lifecycle hooks, orders, positions, entities, Asset construction, Bars/historical data, crypto/base/quote pairs, futures/forex/options entities, examples, notes/reminders, fast order management, slow basket scanners, batch bid/ask quotes, drift rebalancing, Perplexity helper, and general LumiBot method/property questions.
 visibility: public
 license: MIT
 ---

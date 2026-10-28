@@ -1,7 +1,7 @@
 ---
 name: lumibot-backtesting
 title: Backtest and debug a LumiBot strategy
-description: Diagnose failed, no-trade or suspicious LumiBot backtests using saved code, logs, actual fills and artifacts. Supports local LumiBot and BotSpot MCP without changing the user's trading rules.
+description: Use for strategy repair and unfinished first-cycle validation after failed, timed-out or zero-trade backtests, including a terminal wake or a request to explain what happened. Repair pending-entry state through its full lifecycle, not only initialization. For read-only investigation, engine diagnosis, historical-data coverage, or a request not to edit or rerun, use backtest-analysis instead.
 visibility: public
 license: MIT
 ---
