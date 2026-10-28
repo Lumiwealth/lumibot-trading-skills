@@ -45,6 +45,7 @@ Restart Codex if the skills do not show up right away.
 | Skill | What it helps with |
 |---|---|
 | `lumibot-strategy-building` | Start here. Writing, fixing and backtesting any LumiBot strategy, plus the checks that catch bad backtests. |
+| `lumibot-backtesting` | Diagnose failed or no-trade backtests from logs, fills and artifacts; use local LumiBot or BotSpot MCP. |
 | `lumibot-api-reference` | Exact LumiBot method names, lifecycle methods and working code examples. |
 | `stock-etf-strategies` | Stocks and ETFs: moving averages, breakouts, mean reversion, rotation and rebalancing. |
 | `options-strategies` | Options: covered calls, the wheel, spreads, iron condors, straddles and more. |
@@ -61,9 +62,9 @@ Each skill folder has a `SKILL.md` and a `references/` folder with deeper notes.
 2. **Ask** your AI: "Build me a moving average strategy for SPY and backtest it."
 3. **Run it** with LumiBot: `pip install lumibot`, then run the strategy file your AI wrote. The [LumiBot docs](https://lumibot.lumiwealth.com) show how to backtest and how to connect a broker.
 
-## Run it in the cloud for free
+## Connect to hosted backtests
 
-Do not want to set up Python and data? Connect the BotSpot MCP. It is free to connect, and it creates a free BotSpot account for you. Your AI can then build and backtest strategies in the cloud, with the data already set up.
+Do not want to set up Python and data? Connect the BotSpot MCP. It is free to connect, and it creates a free BotSpot account for you. Your AI can then use strategy-building skills, research data and hosted backtest tools. Hosted compute and heavier usage depend on your plan.
 
 Claude Code:
 

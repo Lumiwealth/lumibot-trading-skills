@@ -1,6 +1,6 @@
 {
   "name": "lumibot-trading-skills",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Trading strategy skills for Claude Code, Codex and Cursor, built on LumiBot. Backtest and trade stocks, options, crypto and futures with AI.",
   "author": {
     "name": "Lumiwealth",
@@ -9,5 +9,14 @@
   "homepage": "https://github.com/Lumiwealth/lumibot-trading-skills",
   "repository": "https://github.com/Lumiwealth/lumibot-trading-skills",
   "license": "MIT",
-  "keywords": ["trading", "lumibot", "algorithmic-trading", "backtesting", "options", "crypto", "futures", "ai-agents"]
+  "keywords": [
+    "trading",
+    "lumibot",
+    "algorithmic-trading",
+    "backtesting",
+    "options",
+    "crypto",
+    "futures",
+    "ai-agents"
+  ]
 }
