@@ -74,6 +74,8 @@ the structural contracts needed by the original hedge cache in the read universe
 even when they cannot be bought now. Missing a still-valid hedge quote can switch
 the original option hedge to a stock fallback and changes trading policy.
 
+Before moving a filter into quote preparation, preserve the same field, operator and boundary as the original consumer. An entry predicate using the stock bid is not equivalent to a preload predicate using the ask. Missing sides and crossed bid/ask observations can reach the supported provider adapter; do not assume the usual spread ordering to justify a narrower preload. Build the union using each consumer's original inputs and exclusions, or acquire a broader structural quote universe and retain the original decision filters in their original phase. This is data acquisition work, not permission to add quote rejection or a new trading condition.
+
 Before the first write, trace the full saved file and map these callers:
 
 | Phase | Required data change | Behavior to preserve |

@@ -149,7 +149,7 @@ Diagnosis order:
 3. For completed runs, inspect `trades.csv` or `trades.parquet` and use `query_csv` for exact counts. Do not infer zero trades from zero return metrics.
 4. For no-trade runs, inspect `indicators.parquet` or `indicators.csv` and decision logs to find which entry conditions never triggered or whether orders were rejected/unfillable.
 5. Use `get_code` before deciding what to edit. Map the evidence to the actual code path.
-6. Load focused skills and docs before changing code: options issues need `options-strategies`, indicator/chart issues need `lumibot-indicators`, lifecycle/order/API issues need `lumibot-api-reference`, AI-agent strategy issues need `lumibot-ai-agents`, and broad corrections need `lumibot-strategy-building`.
+6. Load focused skills and docs before changing code: options issues need `options-strategies`, indicator/chart issues need `lumibot-indicators`, and AI-agent strategy issues need `lumibot-ai-agents`. For lifecycle/order/API facts use `lumibot-api-reference`. For an execution-state repair, even a small constant edit, load `lumibot-strategy-building` and its one applicable complete pattern: `references/entry-fill-allowance.py` for filled-entry limits, `references/protective-position-example.py` for protection/retained exits, or `references/rebalance-example.py` for accepted allocations. Wire the needed pattern or preserve an equivalent working owner before saving; a known state defect is not fixed by disclosing it. Broad corrections also need `lumibot-strategy-building`.
 7. Use `lookup_lumibot_docs` when an error mentions a LumiBot method, helper, entity, lifecycle hook, or data/backtesting API.
 
 Agent-detail artifact inspection:
@@ -180,5 +180,3 @@ Crypto no-trade pattern:
 - Do not silently convert pairs such as BTC/EUR into BTC/USD. Preserve the requested quote asset when the runner/data path supports it; if a fresh capability check proves a specific pair is unavailable, explain that precise limitation and offer a supported pair.
 
 Options and complex order no-trade pattern:
-- If an options backtest has chains and option prices but still completes with zero trades, inspect whether the code only tries a complex order and returns when any leg has missing quotes, unusable bid/ask, a wide spread, missing Greeks/delta, missing expiration, or too-strict liquidity.
-- Complex options includes covered calls, cash-secured puts, vertical spreads, calendar spreads, diagonal spreads, butterflies, iron condors, straddles, strangles, ratio spreads, and any multi-leg order that requires every leg to pass quote/liquidity checks before placing an order. Do not make rescue guidance wheel-specific.

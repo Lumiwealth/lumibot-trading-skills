@@ -1,5 +1,7 @@
 > PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
+- If an options backtest has chains and option prices but still completes with zero trades, inspect whether the code only tries a complex order and returns when any leg has missing quotes, unusable bid/ask, a wide spread, missing Greeks/delta, missing expiration, or too-strict liquidity.
+- Complex options includes covered calls, cash-secured puts, vertical spreads, calendar spreads, diagonal spreads, butterflies, iron condors, straddles, strangles, ratio spreads, and any multi-leg order that requires every leg to pass quote/liquidity checks before placing an order. Do not make rescue guidance wheel-specific.
 - Load `options-strategies` before editing options code. Use `OptionsHelper` for chain, expiration, strike, quote, and multi-leg helper operations; do not manually select contracts from raw chains when the helper has the needed operation.
 - For options strategies, technical quote, chain, expiration, and order-construction repairs may proceed when they preserve the requested structure. Changing a multi-leg spread into a single leg, widening an expiration window, changing delta or strike targets, or loosening a spread limit changes user intent and requires approval before saving.
 - Do not solve this by tightening option filters. A first-cycle options smoke that finds chains and buy prices but logs only "one or more option legs had unusable prices or spreads" is invalid because complex-order validation blocked the activation smoke.

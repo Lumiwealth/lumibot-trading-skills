@@ -7,6 +7,93 @@ description: Use for overfills, partial or canceled hedge replacements, repeated
 
 # Quantity belongs to the operation, not its current order
 
+## Observe retained executions before continuing active work
+
+Use this complete caller with the tested component below. Keep its observation
+and excess reporting before active-entry-only continuation guards.
+
+**Completion does not retire attribution.** Do not clear the only ledger or
+stop observing its orders when releasing the active entry. The example's
+`RetainedOperations` keeps each entry's `OperationFills` after completion and
+routes an observed hedge order to its ORIGINAL operation. `claim_completion`
+is once-only; a late report never completes/resumes the old entry again. A
+new entry receives its own book and original target, while the old book remains
+reachable. Clearing an active pointer is fine; deleting its only history is not.
+
+Connect this observer to actual `on_partially_filled_order` AND `on_filled_order`
+callbacks, before the existing option-entry logic. A canceled order's new
+execution can arrive as a partial-fill callback. A comment or unused history
+list does not route that callback. For example, under the SAME common owner:
+
+Put the excess detection/report-state update INSIDE the shared observer, directly
+after updating its per-attempt high-water mark and BEFORE any early return for a
+completed operation. A check only in the active hedge manager never runs for
+archived entries. The example's `reconciliation_required` records the old entry's
+exact excess during `observe()`, independently of completion or resumption.
+Connect that state to the existing diagnostic/logging path. Do not merely keep
+an updated history total and then claim excess is flagged when no such flag or
+report runs on the late callback path.
+
+Keep one registry for the strategy lifetime. A new confirmed entry creates a
+book with `for_entry`; it does not recreate the registry, clear an attempts
+ledger, or discard old books. Preserve unrelated entry initialization while
+replacing any old accounting reset with this retained owner. Use this exact
+initializer in the common serialized owner:
+
+~~~python
+def retained_hedge_registry(self):
+    # Caller holds the same reentrant state owner as submission and callbacks.
+    registry = self.vars.get("hedge_operations")
+    if registry is None:
+        registry = RetainedOperations()
+        self.vars.hedge_operations = registry
+    return registry
+
+# For each confirmed entry, under the common owner:
+# registry = self.retained_hedge_registry()
+# book = registry.for_entry(original_entry_id, original_target)
+# Completing that book releases only its active pointer, never the registry.
+
+@serialized_hedge_state
+def _observe_owned_hedge(self, order):
+    match = self.retained_hedge_registry().observe(order)
+    if match is None:
+        return False
+    entry_id, book = match
+    reported = self.vars.get("reported_hedge_excess", set())
+    if book.filled > book.target and entry_id not in reported:
+        self.log_message(
+            f"Hedge entry {entry_id}: confirmed excess {book.filled - book.target}; "
+            "requires reconciliation, no automatic compensating trade.",
+            color="red",
+        )
+        reported.add(entry_id)
+        self.vars.reported_hedge_excess = reported
+    # If this is the CURRENT operation, observe/cancel excess live leaves using
+    # its common owner. Never credit an archived entry's fills to the current one.
+    # Do not add another completion/rescan initiator here.
+    return True
+
+def on_partially_filled_order(self, position, order, price, quantity, multiplier):
+    if self._observe_owned_hedge(order):
+        return
+    # Preserve any pre-existing unrelated partial-fill behavior here.
+
+def on_filled_order(self, position, order, price, quantity, multiplier):
+    if self._observe_owned_hedge(order):
+        return
+    # Preserve the existing exact option-entry attribution/claim path here.
+~~~
+
+`self.vars` is LumiBot's `Vars`, not a dictionary: use attribute assignment
+and its supported `get(name, default)`, `set(name, value)` or `all()` methods.
+Do not call `self.vars.setdefault`, `update`, or `pop`, or subscript it.
+An actual dictionary stored in a Vars attribute keeps its ordinary dict API.
+The callback above therefore reads the retained set with `get` and writes the
+attribute explicitly, including on late excess reports after completion.
+
+## Prepare one coherent repair
+
 Prepare the complete `OperationFills` and `RetainedOperations` definitions,
 imports AND connected submission, callback, reconciliation and completion
 method bodies before the first write. List the actual existing initialization, submission,
@@ -521,67 +608,6 @@ The complete integration order is:
    If late evidence establishes an actual overhedge, surface unresolved exposure
    and use only the user's authorized recovery policy; never invent a new
    reverse trade or silently mark it complete.
-
-**Completion does not retire attribution.** Do not clear the only ledger or
-stop observing its orders when releasing the active entry. The example's
-`RetainedOperations` keeps each entry's `OperationFills` after completion and
-routes an observed hedge order to its ORIGINAL operation. `claim_completion`
-is once-only; a late report never completes/resumes the old entry again. A
-new entry receives its own book and original target, while the old book remains
-reachable. Clearing an active pointer is fine; deleting its only history is not.
-
-Connect this observer to actual `on_partially_filled_order` AND `on_filled_order`
-callbacks, before the existing option-entry logic. A canceled order's new
-execution can arrive as a partial-fill callback. A comment or unused history
-list does not route that callback. For example, under the SAME common owner:
-
-Put the excess detection/report-state update INSIDE the shared observer, directly
-after updating its per-attempt high-water mark and BEFORE any early return for a
-completed operation. A check only in the active hedge manager never runs for
-archived entries. The example's `reconciliation_required` records the old entry's
-exact excess during `observe()`, independently of completion or resumption.
-Connect that state to the existing diagnostic/logging path. Do not merely keep
-an updated history total and then claim excess is flagged when no such flag or
-report runs on the late callback path.
-
-~~~python
-@serialized_hedge_state
-def _observe_owned_hedge(self, order):
-    match = self.vars.hedge_operations.observe(order)
-    if match is None:
-        return False
-    entry_id, book = match
-    reported = self.vars.get("reported_hedge_excess", set())
-    if book.filled > book.target and entry_id not in reported:
-        self.log_message(
-            f"Hedge entry {entry_id}: confirmed excess {book.filled - book.target}; "
-            "requires reconciliation, no automatic compensating trade.",
-            color="red",
-        )
-        reported.add(entry_id)
-        self.vars.reported_hedge_excess = reported
-    # If this is the CURRENT operation, observe/cancel excess live leaves using
-    # its common owner. Never credit an archived entry's fills to the current one.
-    # Do not add another completion/rescan initiator here.
-    return True
-
-def on_partially_filled_order(self, position, order, price, quantity, multiplier):
-    if self._observe_owned_hedge(order):
-        return
-    # Preserve any pre-existing unrelated partial-fill behavior here.
-
-def on_filled_order(self, position, order, price, quantity, multiplier):
-    if self._observe_owned_hedge(order):
-        return
-    # Preserve the existing exact option-entry attribution/claim path here.
-~~~
-
-`self.vars` is LumiBot's `Vars`, not a dictionary: use attribute assignment
-and its supported `get(name, default)`, `set(name, value)` or `all()` methods.
-Do not call `self.vars.setdefault`, `update`, or `pop`, or subscript it.
-An actual dictionary stored in a Vars attribute keeps its ordinary dict API.
-The callback above therefore reads the retained set with `get` and writes the
-attribute explicitly, including on late excess reports after completion.
 
 Use the supported callback signatures and retained broker-ID/object matching.
 Adapt this routing into complete existing methods; the comments are integration

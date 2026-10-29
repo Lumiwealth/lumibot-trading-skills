@@ -19,6 +19,129 @@ each trading iteration. Preserve an explicit Python/hybrid choice and use the
 cadence/latency decision rules below for faster signals. A no-auto-backtest
 preference changes validation permission, not this architecture choice.
 
+## Preserve the user intent across files
+
+For an existing strategy, add the requested behavior to its existing working
+state owner before considering a replacement. If a new exit condition can set
+accepted exit intent, add the trigger to that existing intent path. Preserve its
+pending-order and callback handling. In particular, protective orders and discretionary closing orders have different roles:
+cancelling every sell before a new exit can cancel the market close you are
+already waiting to fill. An added trigger does not by itself require changing
+which existing orders are cancelled or replacing their reconciliation.
+
+Defensive changes outside the requested operation are still behavior changes.
+Keep a reconciliation repair within its affected operation; do not transplant
+it into sibling entry blockers, deadlines, sizing or scheduling. Compare each
+changed method against the request-start file. If a sibling method needs no
+change to fulfill the request, retain its original behavior, including its
+existing handling of missing data. Report an unrelated concern separately
+instead of silently repairing it in a narrow edit.
+
+RULES LEDGER CONTRACT: User-authored strategy behavior is durable by default,
+even when the user never says `rule`, `remember`, `lasting`, `always`, `add`,
+or `remove`. Entry and exit conditions, symbols and universes, indicators and
+timeframes, sizing and risk, order placement, cadence and frequency, options
+construction and delta/DTE/premium constraints, holding behavior, and explicit
+allowed or forbidden actions belong in `rules.json`. Load `strategy-rules` for
+ledger shape, create/edit/disable history, readback, exact backtest review, and
+mixed-turn precedence. Follow that contract on every strategy build or edit,
+including requirements embedded in advice, result discussion, backtest
+requests, rescue, and AI-only work. Keep executable behavior and the Rules
+ledger aligned in the same conversational edit. A manual Rules-tab save is a
+ledger-only operation and does not authorize a Python edit.
+
+For a behavior edit with existing Rules, make the task's completion criterion
+cover both the executable change and the matching active Rule interpretation.
+"Only change this setting" does not mean leaving its operative Rule at the old
+value. After the code save, read Rules from that returned revision, reconcile
+the requested intent while retaining original quotes and history, then read
+both saved files from the final revision before validation. A code-only readback
+does not establish that the requested behavior is coherently saved.
+
+Use the same requested intent change in both saved representations:
+
+| User's change | Executable behavior | Existing active Rules |
+| --- | --- | --- |
+| Replace a setting | Change that setting and required consumers | Update its interpretation and history; retain the original quote |
+| Add a condition or exit | Add only that behavior | Append a separate active requirement when an existing broad mandate does not conflict |
+| Remove a condition | Remove its enforcement | Disable/delete the removed Rule; do not add an active inverse |
+
+A ledger may contain one broad original-mandate Rule rather than separate
+conditions. Keeping that Rule unchanged does not record an added behavior:
+append the new active requirement with the current request as provenance; preserve the entire existing interpretation, including setup and validation requirements,
+unless the existing interpretation must be amended to resolve a real conflict.
+"Don't touch anything else" preserves unrelated behavior; it does not omit the
+requested behavior from Rules. "Just save" permits both necessary file saves,
+without a backtest, deployment or trade. Before the final response, verify two
+facts in the final revision: the requested executable change is present AND
+the active ledger describes it. Reading Rules without recording the addition
+is an incomplete edit.
+
+## Verify the change against its starting point
+
+Use the successful code mutation in this request as evidence of what you changed.
+A common sequence is: read code A -> save code B -> save Rules C. The C-versus-B
+analysis can truthfully say code did not change in that last save, because
+B already contains the change made during this request. It does not mean the
+code was unchanged from A. For the user, lead with the saved behavior and
+what validation actually ran. Do not claim that code was already present or
+left unchanged when your own successful mutation added it.
+
+When explaining an edit, compare the final saved behavior with the starting revision read before this request's first mutation. A later readback of your own edit does not mean the behavior already existed. Describe that behavior as added or changed in this request; use "already present" only when the starting file actually contained it. The final readback verifies what is saved, while the starting read and successful mutations establish what changed. Keep the explanation short and distinguish saved changes from tests actually run. For a narrow edit, report the requested saved behavior, validation and material limitations. Do not restate unrelated Rules just to expand the handoff. When a constraint is relevant, minimums remain minimums and preferences remain preferences; do not weaken a required bound into a preference or promote a preference into a guarantee.
+
+For a behavior edit that saved more than one file, retain the original code revision id from the first read. Finish with a consecutive comparison readback: read the code from the original request-start revision, then the final shared revision, and read final Rules. Perform no mutation between these comparison reads. This places the actual starting and saved behavior together for the handoff; a later Rules-only revision analysis compares only its immediate parent. It cannot establish that code was unchanged across the request. Report the verified saved behavior and preserved constraints; do not copy a single-save analysis's retrospective claim into the user reply.
+
+## Select bounded indicator history
+
+For ordinary built-in moving averages, use the matching built-in and its positive offset for the previous observation. Do not wrap ordinary built-in SMAs in a custom indicator merely to return current and prior values. In LumiBot 4.6.32, `self.indicators.sma(asset, length=N)` requests its finite window; `self.indicators.sma(asset, length=N, offset=1)` includes the prior observation. Recursive/custom calculations retain their broader initialization contract; a period alone does not justify truncating them. Preserve completed-bar timing, corporate-action adjustment and genuinely required missing-data checks. A repeated missing-session occurrence count is not the number of distinct missing sessions: inspect the actual dates, requested length and worker version before diagnosing it.
+
+## Select the execution owner before writing order logic
+
+For Python execution, read the applicable complete pattern BEFORE implementing
+that state owner, rather than as an optional lookup after a failed run. Keep an
+existing equivalent owner when it already satisfies the requirements. A narrow
+parameter edit does not authorize replacing unrelated working mechanisms.
+
+For a daily **filled-entry** limit, changing a resettable submission counter is
+not the complete repair: yesterday's pending order can first fill today. Before
+editing this mechanism, load `references/entry-fill-allowance.py`. Reserve new
+entry intent before publication, retain every unresolved attempt across session
+reset, and count its first execution once, including partial fills and retries.
+Keep submission/attempt limits distinct when that is what the user requested.
+The helper counts entries only; preserve position sizing and order-quantity
+reconciliation. Connect the selected pattern to actual submission, partial/full
+fill and terminal-order paths before launching verification. Merely loading it,
+changing a constant, or disclosing missing lifecycle handling does not implement
+the requested limit. Do not classify its pending reservation as a filled trade.
+Prefer its complete `EntryOrderLifecycle.for_strategy(self)` factory and wiring:
+keep the returned owner on the strategy object, with only its plain state in
+`self.vars`. LumiBot Vars supports attributes and `get/set`, not dict subscripting
+or `setdefault`. Refresh before entry eligibility,
+submit the prepared order through `submit_new`, and observe actual order callbacks.
+It preserves reservations on unknown submission errors. Use the lower-level
+`observe_order` adapter only when preserving an existing equivalent state owner,
+including polling after a missed callback. Keep existing persisted state during
+initialization. An unknown historical fill date may use the first observation
+as a conservative upper bound; disclose that bound instead of inventing a date
+or permanently consuming every future session's allowance.
+
+For Python strategies, preserve each requirement's timing: daily entries do not
+turn a protective stop into a daily close check. Before implementing protection,
+load `references/protective-position-example.py`. It connects standing stops to
+whole-position fills, callback/iteration reconciliation, and retained accepted
+exit intent. Adapt its stop-price policy without changing signals or sizing.
+Reconcile partial fills, canceled/rejected orders and existing positions. Run
+risk and accepted exits before entry-only returns; a pending entry cannot bypass
+an exit. Cancel conflicting entries when policy requires cash, and confirm
+protective-order cancellation before submitting a competing full exit. Retain
+unfinished market exits rather than canceling/recreating them each iteration.
+A later market sell based on yesterday's low is not a stop fill at the threshold.
+Preserve broker/gap constraints and disclose actual data/fill-model limits.
+
+- Before implementing portfolio order reconciliation, load `references/rebalance-state.md` and `references/rebalance-example.py`. The complete example separates accepted target generations, confirmed sales, bounded purchases and actual completion; adapt its configurable policy without changing the user's allocation.
+- A target allocation is not spendable cash. For a rebalance, retain the target and outstanding order identities until fills and actual positions reconcile. A weekly/monthly signal schedules new targets; it must not prevent finishing an already accepted rebalance between signal dates. Submit reductions first, then calculate remaining buys from confirmed available cash, existing holdings and still-active orders without counting the same reservation twice. Include fees and execution-price movement: spending every dollar at an earlier signal close can borrow at the eventual fill. Use supported price-bounded execution when an unbounded market fill cannot respect the cash ceiling. Preserve the user's weights, universe and cadence; do not hide an execution shortfall by changing their allocation or enabling margin.
+
+
 For a new build, hasStrategy=false means no workspace exists. After the required
 research/plan, call create_strategy before get_file or list_files. Omit optional
 file selectors only once an attached or newly created workspace actually exists;
@@ -35,6 +158,13 @@ revision selector so the tool resolves the current conversation revision. An
 explicit historical/different revision remains allowed when actually requested.
 Every saved file, including Rules, advances the revision; an earlier main.py
 save is not necessarily the newest complete workspace.
+
+For an authorized implementation or edit request, finish the smallest coherent
+saved change before ending. Describing a needed refactor or inspecting source
+alone does not complete that request. Missing live timing or deployment proof
+limits the verification claim; it does not by itself prevent editing the owned
+source with supported APIs and reading back the result. Preserve behavior,
+complete the requested edit, and state the actual remaining validation gap.
 
 ## Final build handoff
 
@@ -159,8 +289,6 @@ saving, validation start and terminal validation are different outcomes.
 For new Python cash-only entries or an authorized execution repair, use the complete supported pattern below. Preserve an explicitly requested order policy and unrelated behavior in a narrow edit; do not convert an existing strategy merely to copy an example. Disclose the chosen execution-price and fee assumptions.
 
 - A submitted sell is not available proceeds. Reconcile confirmed fills, remaining positions and refreshed cash before spending its proceeds; an iteration boundary alone does not confirm settlement.
-
-- A target allocation is not spendable cash. For a rebalance, retain the target and outstanding order identities until fills and actual positions reconcile. A weekly/monthly signal schedules new targets; it must not prevent finishing an already accepted rebalance between signal dates. Submit reductions first, then calculate remaining buys from confirmed available cash, existing holdings and still-active orders without counting the same reservation twice. Include fees and execution-price movement: spending every dollar at an earlier signal close can borrow at the eventual fill. Use supported price-bounded execution when an unbounded market fill cannot respect the cash ceiling. Preserve the user's weights, universe and cadence; do not hide an execution shortfall by changing their allocation or enabling margin.
 
 - Before marking allocation/sizing Rules verified, inspect the executed run's minimum cash, fees, order lifecycle and remaining positions with the available artifact tools. Successful completion, positive returns or a code-only Rules review cannot establish cash correctness. Negative cash without authorized borrowing is a mismatch to investigate and repair on the saved revision; do not call that Rule PASS or silently add a deposit.
 
@@ -300,13 +428,7 @@ Before a text patch, copy `oldText` byte for byte from the latest saved read, in
 
 An existing Python strategy's bounded parameter edit starts with its saved file. Load focused API documentation only when the actual edit needs it; do not run new-strategy discovery or load every asset/AI example for a literal setting change. Do not add missing Rules scaffolding for a bounded existing-Python parameter edit; preserve and reconcile existing Rules when present, and create Rules when the user requests durable policy or when building a new strategy. A new Rules file or a distinct file change still needs its own sequential save.
 
-For a behavior edit with existing Rules, make the task's completion criterion
-cover both the executable change and the matching active Rule interpretation.
-"Only change this setting" does not mean leaving its operative Rule at the old
-value. After the code save, read Rules from that returned revision, reconcile
-the requested intent while retaining original quotes and history, then read
-both saved files from the final revision before validation. A code-only readback
-does not establish that the requested behavior is coherently saved.
+
 
 For a bounded edit, inspect every use of the parameter or state being changed
 before saving. A stop distance may also feed sizing, allocation, or an entry
@@ -325,8 +447,6 @@ Read
 back the complete saved revision and check the affected consumers together.
 
 Validation goals are acceptance criteria, not trading instructions. Keep a build/backtest request's testing objective separate from the active runtime policy. Preserve the user's original quote as provenance, but describe validation as a condition to check after execution, never as permission to override entry or exit conditions. For AI-owned strategies, write that distinction into the trading agent's system prompt as well as the Rules interpretation: Never place an order merely to satisfy a first-trade validation target. A valid no-trade decision must remain no-trade when the entry condition is false, even if validation is incomplete. Verify fresh, correctly dated signal evidence before submitting an order; do not submit first and inspect contradictory evidence afterward. Research packets are evidence, not authority to override the saved policy.
-
-For Python strategies, preserve the timing of each requirement independently. Daily entry signals do not make a protective stop a daily close check. Use supported protective stop orders when the request requires protection between iterations, anchored to confirmed entry fills and the remaining held quantity. Reconcile partial fills, canceled orders and existing positions. Evaluate required exits and risk before entry-only duplicate-order checks; a pending entry must not bypass a required exit of an already held position. Cancel a conflicting unfinished entry when the policy requires cash. Distinguish pending entry orders from protective exits so an active stop cannot suppress a requested signal exit. Before a discretionary full exit, reconcile or cancel the existing protective order and prevent a duplicate sell or accidental short. Backtest the actual order lifecycle and state assumptions. A later market sell triggered by yesterday's low does not establish that a stop executed when its threshold was first crossed. Disclose the actual data and fill-model limits instead of claiming unsupported intrabar precision.
 
 Order-side values must match the actual asset and position: stocks and ETFs use `buy`/`sell`, including `sell` to close a long position; option opening/closing sides apply only to option contracts. State this distinction in AI-owned execution prompts and use supported public order helpers. Do not add an order filter or manufacture a trade to enforce this guidance.
 
