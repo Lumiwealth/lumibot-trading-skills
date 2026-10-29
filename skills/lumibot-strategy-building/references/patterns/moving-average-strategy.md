@@ -11,6 +11,23 @@ MOVING AVERAGE STRATEGIES
 
 Use this skill when generating, refining, or rescuing SMA, EMA, crossover, trend-following, or moving-average filter strategies.
 
+## Complete the execution owner before writing the strategy
+
+This pattern supplies signals; it does not implement position protection. A
+daily moving-average decision does not turn a requested loss limit into a
+daily-close-only exit. For a requested protective stop, load
+`lumibot-strategy-building:references/protective-position-example.py` before
+writing the order lifecycle. Its complete owner connects standing protection
+to actual filled position size/basis and keeps an accepted exit outstanding
+through cancellation, rejection and later signal changes. Keep the signal,
+sizing and fresh-crossover re-entry policy separate from that execution owner.
+
+Make the implementation plan cover both the signal and the requested risk
+behavior. Before calling the strategy complete, inspect whether the saved
+owner protects the position between signal evaluations and retains unfinished
+exits. A daily price check followed by a market sell does not implement that
+standing protection, even if the backtest happens to sell at a similar price.
+
 First-cycle rules:
 - Implement the user's exact lookbacks and crossover rules. Choose the first backtest window to fit them (First test window in `backtest-rescue`): a daily 20/50-day crossover usually needs 1 to 3 months to fire once; a 50/200-day cross is rarer, so say plainly when an affordable test may show no trade. Request enough history before the window for warmup.
 - Do not return before order placement just because one optional moving average is unavailable.

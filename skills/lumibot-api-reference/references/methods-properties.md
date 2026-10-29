@@ -96,6 +96,9 @@ class LongPositionProtection:
         self.strategy, self.asset, self.state, self.stop_for = strategy, asset, state, stop_for
         self._lock = RLock()
         self._publishing = False
+        self._reconciling = False
+        self._needs_reconcile = False
+        self._observation_generation = 0
         self._orders_by_id: dict[str, Any] = {}
         self.state.setdefault('exit_requested', False)
         self.state.setdefault('order_ids', [])
@@ -108,7 +111,7 @@ class LongPositionProtection:
     def request_exit(self) -> None:
         with self._lock:
             self.state['exit_requested'] = True
-            self.reconcile()
+        self.reconcile()
 
     def _remember(self, order: Any, previous: str | None = None) -> str:
         identity = str(order.identifier)
@@ -186,44 +189,68 @@ class LongPositionProtection:
             self.reconcile()
 
     def reconcile(self) -> None:
+        # One controller owns broker work. Callbacks queue a fresh observation
+        # without waiting for its network result or holding a state-only lock.
         with self._lock:
-            if self._publishing:
+            self._observation_generation += 1
+            self._needs_reconcile = True
+            if self._reconciling:
                 return
-            position = self.strategy.get_position(self.asset)
-            held = float(position.quantity) if position is not None else 0.0
-            if not math.isfinite(held):
-                return
-            active = self._orders()
-            if active is None:
-                return
-            stops = [o for o in active if o.side == 'sell' and o.stop_price is not None]
-            if self.exit_requested:
-                conflicts = [o for o in active if o.side == 'buy' or o.stop_price is not None]
-                if conflicts:
-                    self._cancel(conflicts)
-                    return  # cancellation REQUEST is not terminal confirmation
-                if active:
-                    return  # keep an accepted unfinished market exit
-                if held > 0:
-                    self._publish(self.strategy.create_order(self.asset, held, 'sell'))
-                else:
-                    self.state['exit_requested'] = False
-                return
-            if held <= 0:
-                self._cancel(stops)
-                return
-            stop = self.stop_for(position)
-            if stop is None or not math.isfinite(float(stop)) or stop <= 0:
-                return  # caller must expose unavailable basis/price, never invent one
-            remaining = sum(float(o.quantity) - sum(float(t.quantity) for t in o.transactions)
-                            for o in stops)
-            if len(stops) == 1 and math.isclose(remaining, held) and math.isclose(float(stops[0].stop_price), stop):
-                return
-            if stops:
-                self._cancel(stops)
-                return
-            self._publish(self.strategy.create_order(self.asset, held, 'sell',
-                          stop_price=stop, time_in_force='gtc'))
+            self._reconciling = True
+        try:
+            while True:
+                with self._lock:
+                    self._needs_reconcile = False
+                    generation = self._observation_generation
+                self._reconcile_once(generation)
+                with self._lock:
+                    if self._needs_reconcile:
+                        continue
+                    self._reconciling = False
+                    return
+        except BaseException:
+            with self._lock:
+                self._reconciling = False
+            raise
+
+    def _reconcile_once(self, generation: int) -> None:
+        position = self.strategy.get_position(self.asset)
+        held = float(position.quantity) if position is not None else 0.0
+        if not math.isfinite(held):
+            return
+        active = self._orders()
+        if active is None:
+            return
+        stops = [o for o in active if o.side == 'sell' and o.stop_price is not None]
+        if self.exit_requested:
+            conflicts = [o for o in active if o.side == 'buy' or o.stop_price is not None]
+            if conflicts:
+                self._cancel(conflicts)
+                return  # cancellation REQUEST is not terminal confirmation
+            if active:
+                return  # keep an accepted unfinished market exit
+            if held > 0:
+                self._publish(self.strategy.create_order(self.asset, held, 'sell'))
+            else:
+                with self._lock:
+                    if generation == self._observation_generation:
+                        self.state['exit_requested'] = False
+            return
+        if held <= 0:
+            self._cancel(stops)
+            return
+        stop = self.stop_for(position)
+        if stop is None or not math.isfinite(float(stop)) or stop <= 0:
+            return  # caller must expose unavailable basis/price, never invent one
+        remaining = sum(float(o.quantity) - sum(float(t.quantity) for t in o.transactions)
+                        for o in stops)
+        if len(stops) == 1 and math.isclose(remaining, held) and math.isclose(float(stops[0].stop_price), stop):
+            return
+        if stops:
+            self._cancel(stops)
+            return
+        self._publish(self.strategy.create_order(self.asset, held, 'sell',
+                      stop_price=stop, time_in_force='gtc'))
 ```
 <!-- generated-position-protection-owner:end -->
 

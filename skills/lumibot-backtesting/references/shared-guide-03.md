@@ -1,5 +1,8 @@
 > PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
+- Do not silently convert pairs such as BTC/EUR into BTC/USD. Preserve the requested quote asset when the runner/data path supports it; if a fresh capability check proves a specific pair is unavailable, explain that precise limitation and offer a supported pair.
+
+Options and complex order no-trade pattern:
 - If an options backtest has chains and option prices but still completes with zero trades, inspect whether the code only tries a complex order and returns when any leg has missing quotes, unusable bid/ask, a wide spread, missing Greeks/delta, missing expiration, or too-strict liquidity.
 - Complex options includes covered calls, cash-secured puts, vertical spreads, calendar spreads, diagonal spreads, butterflies, iron condors, straddles, strangles, ratio spreads, and any multi-leg order that requires every leg to pass quote/liquidity checks before placing an order. Do not make rescue guidance wheel-specific.
 - Load `options-strategies` before editing options code. Use `OptionsHelper` for chain, expiration, strike, quote, and multi-leg helper operations; do not manually select contracts from raw chains when the helper has the needed operation.

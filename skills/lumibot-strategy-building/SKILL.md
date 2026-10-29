@@ -19,23 +19,7 @@ each trading iteration. Preserve an explicit Python/hybrid choice and use the
 cadence/latency decision rules below for faster signals. A no-auto-backtest
 preference changes validation permission, not this architecture choice.
 
-## Preserve the user intent across files
-
-For an existing strategy, add the requested behavior to its existing working
-state owner before considering a replacement. If a new exit condition can set
-accepted exit intent, add the trigger to that existing intent path. Preserve its
-pending-order and callback handling. In particular, protective orders and discretionary closing orders have different roles:
-cancelling every sell before a new exit can cancel the market close you are
-already waiting to fill. An added trigger does not by itself require changing
-which existing orders are cancelled or replacing their reconciliation.
-
-Defensive changes outside the requested operation are still behavior changes.
-Keep a reconciliation repair within its affected operation; do not transplant
-it into sibling entry blockers, deadlines, sizing or scheduling. Compare each
-changed method against the request-start file. If a sibling method needs no
-change to fulfill the request, retain its original behavior, including its
-existing handling of missing data. Report an unrelated concern separately
-instead of silently repairing it in a narrow edit.
+## Record the accepted requirements
 
 RULES LEDGER CONTRACT: User-authored strategy behavior is durable by default,
 even when the user never says `rule`, `remember`, `lasting`, `always`, `add`,
@@ -57,6 +41,89 @@ value. After the code save, read Rules from that returned revision, reconcile
 the requested intent while retaining original quotes and history, then read
 both saved files from the final revision before validation. A code-only readback
 does not establish that the requested behavior is coherently saved.
+
+## Select the execution owner before writing order logic
+
+For Python execution, read the applicable complete pattern BEFORE implementing
+that state owner, rather than as an optional lookup after a failed run. Keep an
+existing equivalent owner when it already satisfies the requirements. A narrow
+parameter edit does not authorize replacing unrelated working mechanisms.
+
+An expressly requested optimization still requires a saved implementation, with
+its existing trading policy preserved. The coherent implementation may change
+producers and their consumers together when necessary for that optimization;
+that is different from changing entry, exit, sizing or scheduling requirements.
+Read the supported API contract, complete the bounded change, and inspect its
+saved result. The need to coordinate several methods is not itself a capability
+blocker or a reason to stop after describing the work. Report a concrete
+unavailable dependency when one actually prevents the requested change.
+
+For Python strategies, preserve each requirement's timing: daily entries do not
+turn a protective stop into a daily close check. Before implementing protection,
+load `references/protective-position-example.py`. A requested loss stop defaults
+to standing position protection unless the user explicitly chooses a
+periodic/close-only exit; disclosing a weaker daily check does not change that
+request. It connects standing stops to
+whole-position fills, callback/iteration reconciliation, and retained accepted
+exit intent. Connect actual entry-fill callbacks or supported broker-native
+protection so the first filled quantity is protected then, rather than waiting
+for tomorrow's entry iteration. Loading the helper without that integration
+does not implement protection. Adapt its stop-price policy without changing
+signals or sizing.
+Reconcile partial fills, canceled/rejected orders and existing positions. Run
+risk and accepted exits before entry-only returns; a pending entry cannot bypass
+an exit. Cancel conflicting entries when policy requires cash, and confirm
+protective-order cancellation before submitting a competing full exit. Retain
+unfinished market exits rather than canceling/recreating them each iteration.
+A later market sell based on yesterday's low is not a stop fill at the threshold.
+Preserve broker/gap constraints and disclose actual data/fill-model limits.
+
+- Before implementing portfolio order reconciliation, load `references/rebalance-state.md` and `references/rebalance-example.py`. The complete example separates accepted target generations, confirmed sales, bounded purchases and actual completion; adapt its configurable policy without changing the user's allocation.
+- A target allocation is not spendable cash. For a rebalance, retain the target and outstanding order identities until fills and actual positions reconcile. A weekly/monthly signal schedules new targets; it must not prevent finishing an already accepted rebalance between signal dates. Submit reductions first, then calculate remaining buys from confirmed available cash, existing holdings and still-active orders without counting the same reservation twice. Include fees and execution-price movement: spending every dollar at an earlier signal close can borrow at the eventual fill. Use supported price-bounded execution when an unbounded market fill cannot respect the cash ceiling. Preserve the user's weights, universe and cadence; do not hide an execution shortfall by changing their allocation or enabling margin.
+
+
+
+For a daily **filled-entry** limit, changing a resettable submission counter is
+not the complete repair: yesterday's pending order can first fill today. Before
+editing this mechanism, load `references/entry-fill-allowance.py`. Reserve new
+entry intent before publication, retain every unresolved attempt across session
+reset, and count its first execution once, including partial fills and retries.
+Keep submission/attempt limits distinct when that is what the user requested.
+The helper counts entries only; preserve position sizing and order-quantity
+reconciliation. Connect the selected pattern to actual submission, partial/full
+fill and terminal-order paths before launching verification. Merely loading it,
+changing a constant, or disclosing missing lifecycle handling does not implement
+the requested limit. Do not classify its pending reservation as a filled trade.
+Prefer its complete `EntryOrderLifecycle.for_strategy(self)` factory and wiring:
+keep the returned owner on the strategy object, with only its plain state in
+`self.vars`. LumiBot Vars supports attributes and `get/set`, not dict subscripting
+or `setdefault`. Refresh before entry eligibility,
+submit the prepared order through `submit_new`, and observe actual order callbacks.
+It preserves reservations on unknown submission errors. Use the lower-level
+`observe_order` adapter only when preserving an existing equivalent state owner,
+including polling after a missed callback. Keep existing persisted state during
+initialization. An unknown historical fill date may use the first observation
+as a conservative upper bound; disclose that bound instead of inventing a date
+or permanently consuming every future session's allowance.
+
+
+## Preserve the user intent across files
+
+For an existing strategy, add the requested behavior to its existing working
+state owner before considering a replacement. If a new exit condition can set
+accepted exit intent, add the trigger to that existing intent path. Preserve its
+pending-order and callback handling. In particular, protective orders and discretionary closing orders have different roles:
+cancelling every sell before a new exit can cancel the market close you are
+already waiting to fill. An added trigger does not by itself require changing
+which existing orders are cancelled or replacing their reconciliation.
+
+Defensive changes outside the requested operation are still behavior changes.
+Keep a reconciliation repair within its affected operation; do not transplant
+it into sibling entry blockers, deadlines, sizing or scheduling. Compare each
+changed method against the request-start file. If a sibling method needs no
+change to fulfill the request, retain its original behavior, including its
+existing handling of missing data. Report an unrelated concern separately
+instead of silently repairing it in a narrow edit.
 
 Use the same requested intent change in both saved representations:
 
@@ -94,53 +161,6 @@ For a behavior edit that saved more than one file, retain the original code revi
 ## Select bounded indicator history
 
 For ordinary built-in moving averages, use the matching built-in and its positive offset for the previous observation. Do not wrap ordinary built-in SMAs in a custom indicator merely to return current and prior values. In LumiBot 4.6.32, `self.indicators.sma(asset, length=N)` requests its finite window; `self.indicators.sma(asset, length=N, offset=1)` includes the prior observation. Recursive/custom calculations retain their broader initialization contract; a period alone does not justify truncating them. Preserve completed-bar timing, corporate-action adjustment and genuinely required missing-data checks. A repeated missing-session occurrence count is not the number of distinct missing sessions: inspect the actual dates, requested length and worker version before diagnosing it.
-
-## Select the execution owner before writing order logic
-
-For Python execution, read the applicable complete pattern BEFORE implementing
-that state owner, rather than as an optional lookup after a failed run. Keep an
-existing equivalent owner when it already satisfies the requirements. A narrow
-parameter edit does not authorize replacing unrelated working mechanisms.
-
-For a daily **filled-entry** limit, changing a resettable submission counter is
-not the complete repair: yesterday's pending order can first fill today. Before
-editing this mechanism, load `references/entry-fill-allowance.py`. Reserve new
-entry intent before publication, retain every unresolved attempt across session
-reset, and count its first execution once, including partial fills and retries.
-Keep submission/attempt limits distinct when that is what the user requested.
-The helper counts entries only; preserve position sizing and order-quantity
-reconciliation. Connect the selected pattern to actual submission, partial/full
-fill and terminal-order paths before launching verification. Merely loading it,
-changing a constant, or disclosing missing lifecycle handling does not implement
-the requested limit. Do not classify its pending reservation as a filled trade.
-Prefer its complete `EntryOrderLifecycle.for_strategy(self)` factory and wiring:
-keep the returned owner on the strategy object, with only its plain state in
-`self.vars`. LumiBot Vars supports attributes and `get/set`, not dict subscripting
-or `setdefault`. Refresh before entry eligibility,
-submit the prepared order through `submit_new`, and observe actual order callbacks.
-It preserves reservations on unknown submission errors. Use the lower-level
-`observe_order` adapter only when preserving an existing equivalent state owner,
-including polling after a missed callback. Keep existing persisted state during
-initialization. An unknown historical fill date may use the first observation
-as a conservative upper bound; disclose that bound instead of inventing a date
-or permanently consuming every future session's allowance.
-
-For Python strategies, preserve each requirement's timing: daily entries do not
-turn a protective stop into a daily close check. Before implementing protection,
-load `references/protective-position-example.py`. It connects standing stops to
-whole-position fills, callback/iteration reconciliation, and retained accepted
-exit intent. Adapt its stop-price policy without changing signals or sizing.
-Reconcile partial fills, canceled/rejected orders and existing positions. Run
-risk and accepted exits before entry-only returns; a pending entry cannot bypass
-an exit. Cancel conflicting entries when policy requires cash, and confirm
-protective-order cancellation before submitting a competing full exit. Retain
-unfinished market exits rather than canceling/recreating them each iteration.
-A later market sell based on yesterday's low is not a stop fill at the threshold.
-Preserve broker/gap constraints and disclose actual data/fill-model limits.
-
-- Before implementing portfolio order reconciliation, load `references/rebalance-state.md` and `references/rebalance-example.py`. The complete example separates accepted target generations, confirmed sales, bounded purchases and actual completion; adapt its configurable policy without changing the user's allocation.
-- A target allocation is not spendable cash. For a rebalance, retain the target and outstanding order identities until fills and actual positions reconcile. A weekly/monthly signal schedules new targets; it must not prevent finishing an already accepted rebalance between signal dates. Submit reductions first, then calculate remaining buys from confirmed available cash, existing holdings and still-active orders without counting the same reservation twice. Include fees and execution-price movement: spending every dollar at an earlier signal close can borrow at the eventual fill. Use supported price-bounded execution when an unbounded market fill cannot respect the cash ceiling. Preserve the user's weights, universe and cadence; do not hide an execution shortfall by changing their allocation or enabling margin.
-
 
 For a new build, hasStrategy=false means no workspace exists. After the required
 research/plan, call create_strategy before get_file or list_files. Omit optional
