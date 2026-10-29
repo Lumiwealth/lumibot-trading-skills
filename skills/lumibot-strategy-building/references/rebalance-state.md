@@ -19,8 +19,12 @@ normal iteration and after actual fill/cancel observations, including between
 weekly or monthly signal dates. A date marker records target acceptance, not
 successful execution. Do not place reconciliation behind a Monday-only return.
 
-Use the SAME existing execution lock and order publisher as the strategy's
-other execution paths. This example assumes that owner controls the portfolio's
+Use the SAME existing state lock and order publisher as the strategy's
+other execution paths. Hold the state lock only for short state changes; do not
+wrap the full iteration, callback, valuation or broker call in it. One reconciler
+owns external work while callbacks queue a fresh observation and return. A new
+accepted target stops further submissions for the previous target, then reconciles
+its actual outstanding orders. This example assumes that owner controls the portfolio's
 orders. Integrate it into that owner; do not add a second independent publisher
 or ignore other outstanding cash obligations. Preserve the user's signal,
 ranking universe, weights, other exits and schedule.
@@ -69,15 +73,15 @@ self.allocation_execution = AllocationReconciler(
 )
 
 # on_trading_iteration: signal calculation remains the original strategy's job
-with self.execution_lock:
-    signal = self.new_allocation_signal()  # None between accepted signal dates
-    if signal is not None:
-        generation, weights = signal
-        self.allocation_execution.accept(weights, generation)
-    outcome = self.allocation_execution.reconcile()  # also runs between dates
+signal = self.new_allocation_signal()  # None between accepted signal dates
+if signal is not None:
+    generation, weights = signal
+    self.allocation_execution.accept(weights, generation)
+outcome = self.allocation_execution.reconcile()  # also runs between dates
 ```
 
-A fill/cancel observer may call `reconcile()` under that same owner. Keep these
+A fill/cancel observer may call `reconcile()` through that same owner, without
+holding an outer lock across it. Keep these
 calls out of code that chooses a fresh signal or applies a second publisher.
 `maximum_buy_price` supplies the actual current allowed buy limit, not a fee-free
 market price. Configure the simulation/live fees consistently with this helper's
