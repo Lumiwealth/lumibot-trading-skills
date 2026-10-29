@@ -70,6 +70,9 @@ protection so the first filled quantity is protected then, rather than waiting
 for tomorrow's entry iteration. Loading the helper without that integration
 does not implement protection. Adapt its stop-price policy without changing
 signals or sizing.
+For requested trailing protection, also load `references/trailing-stop-policy.py`
+and `references/patterns/breakout-strategy.md`: retain the accepted stop as well
+as the favorable-price reference so a wider volatility distance cannot loosen it.
 Reconcile partial fills, canceled/rejected orders and existing positions. Run
 risk and accepted exits before entry-only returns; a pending entry cannot bypass
 an exit. Cancel conflicting entries when policy requires cash, and confirm
