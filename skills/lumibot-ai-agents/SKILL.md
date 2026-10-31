@@ -43,10 +43,36 @@ relevant dated research, refreshing it when necessary. Do not rerun every role
 merely because the Python loop woke up. Never move selection, sizing or order
 judgment into a Python controller to reduce inference.
 
-Before implementing frequent monitoring, load `references/event-driven-attention.md`.
+When ongoing risk observation and low inference usage are both requested, load
+`references/event-driven-attention.md` before writing code. This applies even
+when the user does not name a polling interval, a hybrid, or a monitor API.
+Choose a practical observation interval and sparse decision opportunities
+separately. A once-daily team with no observation or protection between runs
+does not implement ongoing risk monitoring. Describing that omission honestly
+does not repair it. Keep an explicitly requested daily-only policy intact.
+Before marking initial setup complete, saving research as usable, or allowing
+an attention callback to succeed, verify each required agent decision actually
+completed. `AgentHandle.run()` can return an incomplete result without raising.
+Preserve the warning and surface that failure instead of acknowledging it as a
+hold or installing a false completed-setup state. Verify the current result API
+and the observation/dispatch example; do not infer completion from a returned object.
 Check the installed runtime API and the actual Manager runtime before using a
 new capability. Source code or a configured model is not proof that a hosted
 backtest has that capability or Login with ChatGPT funding.
+
+Close the decision loop in the saved implementation. Give the trader the actual
+coordinator contract for requesting research and scheduling the next eligible
+opportunity after a declined setup or confirmed closure. A Python refresh branch
+without a matching instruction/tool contract is unreachable by the agent's
+policy. Read back that connection along with management, residual-order recovery
+and decision-completion handling before launching validation. Use the generic
+monitor's existing deduplication and grouping rather than reimplementing them.
+
+In the final build handoff, briefly describe the actual chosen setup opportunity,
+expiration/intended holding or roll horizon, risk/exit policy and cheap observation
+interval. One compact description of these material choices is enough; a DTE
+range alone does not explain when the position will be reviewed or exited.
+Keep the actual queued/completed validation result separate from that policy.
 
 ## Explicit Python order ownership
 

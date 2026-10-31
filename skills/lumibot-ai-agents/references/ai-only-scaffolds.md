@@ -45,12 +45,20 @@ Reference: [Options Institute long iron condor guide](https://www.fidelity.com/l
 
 ## Shared AI-Only Trading Shape
 
-Use the coarsest practical cadence that can observe each requested decision
-window. The example uses five minutes, not one-minute model polling. Adapt that
-illustrative interval to the actual strategy; preserve explicitly requested
-faster behavior and keep all configured agents on the chosen trading cycle.
-A finer clock must not silently become repeated one-minute AI calls throughout
-a wider entry or exit window.
+First distinguish a scheduled AI decision from ongoing risk observation. If the
+user wants the bot to keep watching risk without frequent inference, load
+`references/event-driven-attention.md` and use its observation/dispatch shape.
+Do not copy the scheduled-only example below and change its interval to daily:
+that removes management between decisions. The AI selects actual saved attention
+conditions, and quiet observations run no model. Order/position events remain
+reachable while a position or working order exists.
+
+The scheduled-only example below is for a mandate whose decisions and protection
+can actually occur at that schedule. Its daily interval is illustrative, not a
+default for intraday risk. Preserve an explicit daily-only or informed frequent-AI
+choice; do not impose an attention mechanism on every strategy.
+Use the coarsest practical cadence for each clock that preserves its actual
+requirements; do not weaken a required observation to reduce model usage.
 
 For a new setup, run useful research and the sole trader, passing the actual
 research answer unchanged. Management can use relevant dated research and
@@ -70,7 +78,7 @@ from lumibot.strategies.strategy import Strategy
 
 class AIOnlyStrategy(Strategy):
     def initialize(self):
-        self.sleeptime = "5M"  # Illustrative intraday cadence; match the requested windows.
+        self.sleeptime = "1D"  # Scheduled-only example; not ongoing intraday monitoring.
         self.agents.create(
             name="researcher",
             model="<default model id from CURRENT AI MODELS>",

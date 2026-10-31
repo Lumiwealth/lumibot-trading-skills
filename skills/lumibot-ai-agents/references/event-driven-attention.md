@@ -65,6 +65,71 @@ pending. A worker error is surfaced to the lifecycle, not silently acknowledged
 or retried every minute. This does not supply automatic order recovery or a
 provider outage policy: those remain visible and must be handled deliberately.
 
+### Lifecycle shape when this API is installed
+
+Create the research roles and sole trader normally, with their actual strategy
+policies and Rules. Tell the trader that a time watch called `research_review`
+requests another research cycle; other watches deliver management evidence with
+the dated prior answer. These names are one explicit application contract, not
+required names for every strategy. Bootstrap one initial review at an eligible
+time, then let the AI choose subsequent reviews and risk conditions. For example,
+the following lifecycle methods use the existing roles named `researcher` and
+`trader`; they contain no contract, quantity, price or order decision:
+
+```python
+def on_trading_iteration(self):
+    self.agents.attention.poll()
+    self.agents.attention.dispatch(self._review_attention)
+
+def _review_attention(self, packet):
+    if any(event["watch_id"] in {"initial_review", "research_review"} for event in packet):
+        research = self.agents["researcher"].run(
+            task_prompt="Review the setup using current strategy time and dated evidence.",
+            context={"attention": packet, "prior_research": self.vars.get("research")})
+        self._require_completed(research)
+        self.vars.set("research", {"at": self.get_datetime().isoformat(), "answer": research.summary})
+    decision = self.agents["trader"].run(
+        task_prompt="Manage the attention evidence and save your next conditions or review.",
+        context={"attention": packet, "dated_research": self.vars.get("research")})
+    self._require_completed(decision)
+
+@staticmethod
+def _require_completed(result):
+    if not (result.payload or {}).get("execution_outcome", {}).get("decision_completed"):
+        raise RuntimeError("Incomplete decision; preserve attention for recovery")
+
+def on_strategy_end(self):
+    self.agents.attention.join()
+
+def on_abrupt_closing(self):
+    self.agents.attention.join()
+```
+
+Set an observation `sleeptime` appropriate to the requirement, and actually
+register the initial eligible time watch from initialization or an appropriate
+lifecycle callback. Omitting that bootstrap leaves the example dormant.
+The trader must use the returned attention tools to register subsequent watches;
+an instruction to "watch risk" without a saved condition leaves it unmonitored.
+Pass the coordinator's refresh contract to the trader, not just to Python. For
+the example above, its effective prompt must explain that a time watch named
+`research_review` runs research before the next trading decision. After a
+declined setup or confirmed closure, the trader schedules the next eligible
+opportunity through that route. While holding, it chooses needed management
+events without creating a daily entry discussion. A coordinator branch that no
+agent knows how to request is a dormant branch, not a working refresh policy.
+
+At saved-code readback, trace the whole decision loop: initial review, a declined
+entry, a later eligible setup, management while holding, partial or failed orders,
+and confirmed closure. Check that each state can reach the appropriate next
+decision and that its actual role prompt or tool contract explains how. This is
+a semantic review, not a requirement for these example names or a Python state
+machine. Keep runtime-owned deduplication and grouping in the runtime; do not
+copy those algorithms into the strategy or demand the same wording in every
+prompt.
+Verify quiet polls, the initial cycle, a triggered management cycle and its next
+attention plan with the installed API. Confirm hosted runtime compatibility
+separately; do not claim this excerpt proves a Manager run.
+
 ## Research and management
 
 A new setup needs the relevant fresh research and trader. For an existing

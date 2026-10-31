@@ -31,6 +31,16 @@ cycle. Preserve an explicit Python/hybrid choice and use the
 cadence/latency decision rules below for faster signals. A no-auto-backtest
 preference changes validation permission, not this architecture choice.
 
+Choose observation frequency separately from model frequency. A request to keep
+watching risk while conserving AI credits requires a reachable observation and
+management path between scheduled research decisions. Reducing the whole bot
+to one daily call removes that path; disclosing the weaker behavior does not
+fulfill the request. Load `lumibot-ai-agents` and its
+`references/event-driven-attention.md` before choosing that design. Cheap
+observations may wake the sole trader on AI-selected changes; Python must not
+become the signal, sizing or order owner. An explicitly scheduled daily/weekly
+strategy without intraday protection remains valid on that schedule.
+
 ## Record the accepted requirements
 
 RULES LEDGER CONTRACT: User-authored strategy behavior is durable by default,
@@ -38,13 +48,24 @@ even when the user never says `rule`, `remember`, `lasting`, `always`, `add`,
 or `remove`. Entry and exit conditions, symbols and universes, indicators and
 timeframes, sizing and risk, order placement, cadence and frequency, options
 construction and delta/DTE/premium constraints, holding behavior, and explicit
-allowed or forbidden actions belong in `rules.json`. Load `strategy-rules` for
+allowed or forbidden actions belong in `rules.json`. Load `strategy-rules`, when
+it is advertised by the connected client, for
 ledger shape, create/edit/disable history, readback, exact backtest review, and
 mixed-turn precedence. Follow that contract on every strategy build or edit,
 including requirements embedded in advice, result discussion, backtest
 requests, rescue, and AI-only work. Keep executable behavior and the Rules
 ledger aligned in the same conversational edit. A manual Rules-tab save is a
 ledger-only operation and does not authorize a Python edit.
+
+Discover guides and tools from the connected client's actual catalogue. Some
+workflow guides named here are available only in particular clients; connecting
+the public MCP does not install private guides or add unadvertised tools. If a
+named guide is unavailable, use the advertised file/Rules tools' schemas and
+descriptions, preserve the existing valid ledger and its unrelated intent, and
+read back the final revision. Do not repeatedly request an absent guide, invent
+its contents or treat missing optional teaching as permission to omit the user's
+requirements. If an actual required operation is unavailable, report that exact
+capability gap while completing supported work.
 
 For a behavior edit with existing Rules, make the task's completion criterion
 cover both the executable change and the matching active Rule interpretation.
