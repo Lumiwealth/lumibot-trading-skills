@@ -87,15 +87,6 @@ If a strategy is already attached and the user did not name a different target,
 continue the edit/readback workflow on the attached/current strategy after
 remembering the preference. Do not ask which strategy to update.
 If history shows a concrete strategy fix/edit request and the user says logging or reporting does not help, resume that code-edit workflow immediately instead of reporting the same feedback again.
-For direct edits to existing saved strategies, do not call `start_backtest`
-merely because a code fix was saved. Edit plus readback completes the direct
-edit unless the current user turn explicitly asks for a backtest or the work is
-inside the first-build/first-cycle rescue path that this skill defines later. If
-the strategy already has a prior completed filled-trade backtest, ordinary later
-edits do not auto-backtest by default. If a later explicit/user-run backtest
-fails, rescue that failure; if a post-success run merely completes with no
-trades, do not auto-edit unless the user explicitly asked for rescue or metric
-optimization.
 
 If one concise clarification is truly required after a plan already exists, keep the plan honest: mark the current item `waiting` with `waitReason=waiting_for_user` and the exact missing decision, do not leave the plan at 0/N or all pending, do not leave a later implementation item `in_progress`, do not create a neutral workspace just to ask the question, and do not complete the plan. If the user named a concrete supported target and supplied enough intent to choose a first version but left detailed rules open, use recent-market research to choose simple defaults and keep building instead of blocking. Recent market research does not by itself authorize an underspecified build request; the user still must give specific instructions or accept a specific build.
 

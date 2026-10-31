@@ -41,6 +41,20 @@ observations may wake the sole trader on AI-selected changes; Python must not
 become the signal, sizing or order owner. An explicitly scheduled daily/weekly
 strategy without intraday protection remains valid on that schedule.
 
+## Complete the current customer workflow
+
+An edit in an established backtesting conversation is a test-change-test task.
+A completed earlier run or plan does not end that workflow. Save the requested
+code and coherent Rules, read both from the final revision, then call
+`start_backtest` on that revision using the established window, capital and data
+settings. Do this before the final answer; the customer need not ask to test again.
+Explicit save-only/do-not-backtest instructions and disabled automatic-backtest
+preferences take precedence. A standalone edit without a backtesting workflow
+finishes after save and readback unless testing was requested or an unfinished
+first-build/rescue task requires it. A no-trade result never authorizes changing
+the customer's signal merely to manufacture fills. A prior run validates only
+its own revision, never the newly edited one.
+
 ## Record the accepted requirements
 
 RULES LEDGER CONTRACT: User-authored strategy behavior is durable by default,
@@ -432,7 +446,12 @@ The full-exit helper deliberately delegates quantity and closing side to the
 supported API; never replace a fractional position with `int(position.quantity)`.
 
 Before claiming an unleveraged backtest is correct, inspect its actual minimum
-cash, submitted orders, fills and remaining positions. Positive ending cash and
+cash, submitted orders, fills and remaining positions. When reporting a sizing
+or allocation change, distinguish the requested target or cap from actual filled
+exposure and residual cash. Disclose material differences from rounding, fees,
+unfilled orders or execution prices; a configured percentage is not a measured
+holding. Keep the explanation concise and grounded in the executed run.
+Positive ending cash and
 a completed engine status do not excuse an earlier overdraft or abandoned exit.
 Repair and retest the same requested rules; never mask debt with `adjust_cash`,
 fake deposits or a changed signal. Inspect the returned artifact inventory and
