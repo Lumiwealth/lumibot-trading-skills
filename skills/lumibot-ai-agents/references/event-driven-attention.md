@@ -123,6 +123,11 @@ self.agents.attention.watch(
 
 Persist that successful registration so a restart restores it rather than
 creating repeated initial decisions. Registration is not a completed AI decision.
+`initialize()` runs again after a restart. Preserve existing `self.vars` research,
+watch-registration flags and pending operation identity with defaults; assigning
+`None` or `False` over them at every initialization repeats setup and loses context.
+Use `self.vars.get(key, default)` when establishing persistent defaults.
+
 The trader must use the returned attention tools to register subsequent watches;
 an instruction to "watch risk" without a saved condition leaves it unmonitored.
 Pass the coordinator's refresh contract to the trader, not just to Python. For
@@ -162,7 +167,11 @@ or Python judgment about a trade. Do not substitute invented cached research or 
 result and pass a placeholder instead.
 
 The trader's policy should name the evidence it needs and the management
-choices it owns. It should check exact held contracts and current quotes before
+choices it owns. Its recovery policy must preserve returned working-order
+identities with the operation and reconcile partial, failed or cancel-pending
+orders and residual positions before another submission; rely on the runtime
+for observation and single-flight coordination.
+ It should check exact held contracts and current quotes before
 an order, reconcile the related pending order and residual position, then decide
 whether to hold, cancel/replace, exit or roll under the active Rules. A known
 risk-reducing exit need not rerun a broad candidate search or all researchers.

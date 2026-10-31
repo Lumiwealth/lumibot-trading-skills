@@ -280,9 +280,12 @@ recovery, and the list of cases to test before trusting it with real money.
 - Use `self.indicators`, cached chains and batched reads (Steps 3 and 4). They
   help backtests as much as live trading.
 - Avoid live web or API calls in backtests unless they are replay-safe or cached.
-- AI-agent strategies call a model on every simulated iteration. They are the
-  slowest backtests: keep the first run to about a week of daily iterations and a
-  small universe (see `lumibot-ai-agents`).
+- Separate observation cadence from AI decision cadence. An AI-owned hybrid may
+  observe minute data without inference, waking its trading agent only for a
+  meaningful saved event. Keep research useful and refresh it for new setups.
+  Start with a short window suited to the intended entries and holding period,
+  then measure complete agent runs, tool continuations and quiet polls separately
+  (see `lumibot-ai-agents` and its event-driven attention reference).
 - Options backtests depend on per-contract data; selecting contracts through
   `OptionsHelper` and caching them avoids requesting data for contracts that do
   not exist or are never traded.
