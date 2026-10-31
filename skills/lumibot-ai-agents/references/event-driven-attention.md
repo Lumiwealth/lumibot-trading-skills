@@ -108,6 +108,21 @@ def on_abrupt_closing(self):
 Set an observation `sleeptime` appropriate to the requirement, and actually
 register the initial eligible time watch from initialization or an appropriate
 lifecycle callback. Omitting that bootstrap leaves the example dormant.
+The Python method and the model tool have distinct signatures. The model's
+`attention_watch` tool supplies its role owner automatically. Direct Python
+registration requires that owner plus the flat metric/comparison/value fields;
+it does not accept a `condition` dictionary. For example, at the first eligible
+review callback, after creating the roles:
+
+```python
+self.agents.attention.watch(
+    owner="lifecycle", watch_id="initial_review", operation_id="initial_setup",
+    metric="time", comparison="gte", value=self.get_datetime().isoformat(),
+    reason="First eligible setup review")
+```
+
+Persist that successful registration so a restart restores it rather than
+creating repeated initial decisions. Registration is not a completed AI decision.
 The trader must use the returned attention tools to register subsequent watches;
 an instruction to "watch risk" without a saved condition leaves it unmonitored.
 Pass the coordinator's refresh contract to the trader, not just to Python. For

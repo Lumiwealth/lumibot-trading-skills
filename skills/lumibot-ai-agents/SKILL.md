@@ -73,6 +73,10 @@ expiration/intended holding or roll horizon, risk/exit policy and cheap observat
 interval. One compact description of these material choices is enough; a DTE
 range alone does not explain when the position will be reviewed or exited.
 Keep the actual queued/completed validation result separate from that policy.
+Before the final handoff, compare that one compact policy description with the
+saved source: explain when it can enter and what makes it hold, exit or roll.
+Prioritize those actual choices over a long inventory of tool/setup caveats;
+keep material missing evidence and the actual validation state visible.
 
 ## Explicit Python order ownership
 
