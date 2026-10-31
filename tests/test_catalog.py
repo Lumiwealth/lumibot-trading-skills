@@ -20,14 +20,17 @@ class CatalogParity(unittest.TestCase):
         data = json.loads((ROOT / "catalog.json").read_text())
         advertised = set()
         for skill in data["skills"]:
-            base = ROOT / "skills" / skill["name"]
-            body = re.sub(r"^---\n.*?\n---\n", "", (base / "SKILL.md").read_text(), count=1, flags=re.S)
-            self.assertEqual(body, HEADER + "\n\n" + skill["body"])
+            source = skill['body']
+            metadata = re.match(r'^---\n(.*?)\n---\n', source, re.S)
+            self.assertIsNotNone(metadata, skill['name'])
+            native_name = re.search(r'^name: ([a-z0-9-]+)$', metadata[1], re.M)[1]
+            self.assertIn('visibility: public', metadata[1])
+            base = ROOT / 'skills' / native_name
+            self.assertEqual((base / 'SKILL.md').read_bytes(), source.encode('utf-8'))
             advertised.add(base / "SKILL.md")
             for ref in skill["references"]:
                 path = base / ref["path"]
-                header = "# " + HEADER[2:] if path.suffix == ".py" else HEADER
-                self.assertEqual(path.read_text(), header + "\n\n" + ref["text"])
+                self.assertEqual(path.read_bytes(), ref['text'].encode('utf-8'))
                 advertised.add(path)
         actual = {p for p in (ROOT / "skills").rglob("*") if p.is_file()}
         self.assertEqual(actual, advertised)

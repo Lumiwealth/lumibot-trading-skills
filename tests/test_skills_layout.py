@@ -59,12 +59,13 @@ def test_referenced_files_exist():
     # historical filename does NOT exist; matching every prose filename cannot
     # distinguish that warning from a resource the client can load.
     catalog = json.loads((ROOT / "catalog.json").read_text(encoding="utf-8"))
-    assert sorted(s["name"] for s in catalog["skills"]) == sorted(p.name for p in skill_dirs())
+    names = {s['name']: frontmatter(s['body'])['name'] for s in catalog['skills']}
+    assert sorted(names.values()) == sorted(p.name for p in skill_dirs())
     for skill in catalog["skills"]:
         for ref in skill["references"]:
             path = Path(ref["path"])
             assert not path.is_absolute() and ".." not in path.parts
-            assert (SKILLS / skill["name"] / path).is_file(), f"{skill['name']}: {path} is missing"
+            assert (SKILLS / names[skill['name']] / path).is_file(), f"{skill['name']}: {path} is missing"
 
 
 def test_marketplace_lists_every_skill():

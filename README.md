@@ -9,6 +9,13 @@ skills keep the version you installed until you update the package. Compatible B
 refresh its content automatically; older servers retain their bundled version
 until their normal update.
 
+A guide is published when its canonical source is marked `visibility: public`.
+Private owners and their nested guides are excluded. Publication preserves the
+complete source files byte for byte, including frontmatter and references; it
+does not rewrite instructions for an external audience. The source's
+`public-name` is an MCP discovery alias, so existing MCP names can stay stable
+while installed folders use the canonical source name.
+
 Ask your AI to build a trading bot, and these skills teach it how to do it right. It learns how to write a LumiBot strategy, backtest it, read the results, and avoid the mistakes that make backtests lie. They cover stocks, ETFs, options, crypto, futures and AI agents that trade.
 
 LumiBot is the open-source Python trading library from Lumiwealth. Docs: https://lumibot.lumiwealth.com
@@ -51,12 +58,12 @@ Restart Codex if the skills do not show up right away.
 
 | Skill | What it helps with |
 |---|---|
-| `lumibot-strategy-building` | Start here. Writing, fixing and backtesting any LumiBot strategy, plus the checks that catch bad backtests. |
-| `lumibot-backtesting` | Diagnose failed or no-trade backtests from logs, fills and artifacts; use local LumiBot or BotSpot MCP. |
+| `strategy-building-core` (MCP: `lumibot-strategy-building`) | Start here. Writing, fixing and backtesting any LumiBot strategy, plus the checks that catch bad backtests. |
+| `backtest-rescue` (MCP: `lumibot-backtesting`) | Diagnose failed or no-trade backtests from logs, fills and artifacts; use local LumiBot or BotSpot MCP. |
 | `lumibot-api-reference` | Exact LumiBot method names, lifecycle methods and working code examples. |
 | `stock-etf-strategies` | Stocks and ETFs: moving averages, breakouts, mean reversion, rotation and rebalancing. |
-| `options-strategies` | Options: covered calls, the wheel, spreads, iron condors, straddles and more. |
-| `lumibot-indicators` | Indicators like SMA, RSI, MACD and Bollinger Bands, and putting them on the backtest chart. |
+| `lumibot-options-helper` (MCP: `options-strategies`) | Options: covered calls, the wheel, spreads, iron condors, straddles and more. |
+| `lumibot-indicators-and-charting` (MCP: `lumibot-indicators`) | Indicators like SMA, RSI, MACD and Bollinger Bands, and putting them on the backtest chart. |
 | `lumibot-ai-agents` | Strategies where AI agents do the research and one AI agent places the trades. |
 | `fast-lumibot-strategies` | Making slow strategies and big scanners fast, and handling orders quickly and safely. |
 | `using-botspot-mcp` | Using the free BotSpot MCP to build, backtest and run strategies in the cloud. |
@@ -80,6 +87,13 @@ claude mcp add --transport http botspot https://mcp.botspot.trade/mcp
 ```
 
 Other apps that support MCP can use the same address: `https://mcp.botspot.trade/mcp`. Learn more at [botspot.trade](https://botspot.trade).
+
+Connecting exposes the `skills` tool. The agent lists the catalogue, reads the
+relevant guide with `skills(action="get", name="...")`, then loads its references
+when needed. MCP does not install native skills or put every guide into every
+model turn automatically. A native installation provides the same files through
+your client's skill loader. Neither connection guarantees that a client will
+read the right guide; the client must actually load it and use its instructions.
 
 Running a bot with your own broker always needs your approval on botspot.trade first. Nothing trades without you saying yes.
 
