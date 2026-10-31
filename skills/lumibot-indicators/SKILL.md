@@ -1,7 +1,7 @@
 ---
 name: lumibot-indicators
 title: "LumiBot Indicators and Charting"
-description: "Use when LumiBot strategy code needs indicator computation, pandas-ta-classic helpers, self.indicators migration, charted indicator lines, trade markers, OHLC visualizations, or missing backtest indicator graph debugging. Not for a chart or indicator question answered in chat; that uses chart-artifacts and data-analysis."
+description: "Use when LumiBot strategy code needs indicator computation, pandas-ta-classic helpers, self.indicators migration, charted indicator lines, trade markers, OHLC visualizations, or missing backtest indicator graph debugging, or making and saving the person's own custom chart indicator. Not for a chart or indicator question answered in chat; that uses chart-artifacts and data-analysis."
 visibility: public
 license: MIT
 ---
@@ -48,6 +48,18 @@ Two related contracts live here:
   `add_line`, `add_marker`, `add_ohlc`, the accepted marker symbols
   `arrow-up` and `arrow-down`, and the hover-text parameter rule:
   use `detail_text`, never `text`.
+
+- Custom chart indicators: when the person asks you to make, change or save
+  their own indicator for BotSpot charts, load
+  `references/custom-chart-indicators.md` with `skills reference get`, write a
+  LumiBot `Indicator` class, and save it with the `indicators` tool
+  (`action: "create"`, or `"update"` for a new version). Do not create a
+  strategy, plan or backtest for it. `inputs`, `outputs` and `levels` hold
+  `InputSpec(...)`, `OutputSpec(...)` and `Level(...)` objects, never dicts.
+  Every save is test-run; if it is refused, fix the named problems and save
+  again. When the person also wants it on a chart, add it with `live_chart`
+  (`create_chart` indicators or `add_indicator`) by the `chartKey` the save
+  returns (see the live chart section of `chart-artifacts`).
 
 Core rule: logging is not charting. A strategy that only logs an indicator, threshold,
 entry, exit, or stop has not created chart data. For chartable strategies,
