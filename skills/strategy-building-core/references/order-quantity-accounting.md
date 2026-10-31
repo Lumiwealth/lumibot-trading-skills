@@ -9,8 +9,13 @@ description: Use for overfills, partial or canceled hedge replacements, repeated
 
 ## Observe retained executions before continuing active work
 
-Use this complete caller with the tested component below. Keep its observation
-and excess reporting before active-entry-only continuation guards.
+Use the complete tested `OperationFills` and `RetainedOperations` component below,
+then adapt its caller to the saved strategy. Do not replace it with a partial
+high-water dictionary that loses its reporting path. Every observation does four
+things in order: resolve the original operation, update the attempt's high-water
+fill, record/report any excess over that operation's original target, THEN check
+whether active work can continue. The excess step still runs after completion,
+after the queue is cleared and while a different entry is active.
 
 **Completion does not retire attribution.** Do not clear the only ledger or
 stop observing its orders when releasing the active entry. The example's
@@ -142,6 +147,14 @@ path or change what that original path does after a missing entry-order read.
 At final readback compare those untouched method bodies against the original,
 as well as tracing the new hedge path. Correct an accidental entry-policy edit
 before final-answering; a successful hedge repair does not excuse that drift.
+
+Audit zero-fill terminal entries separately from hedge observations. An entry
+that finishes with no executions still needs its original terminal cleanup;
+an early return for zero cumulative quantity must not skip that cleanup.
+Limit quantity-accounting changes to the hedge's ownership and actual filled
+quantity. Preserve the original entry-cancellation missing-read branch and
+its release behavior verbatim. Compare those specific branches in the saved
+readback before reporting the repair complete.
 
 Add accounting initialization to the actual original `initialize` method;
 preserve its existing helper construction, caches, deadlines and scan state.
