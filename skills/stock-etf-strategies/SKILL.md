@@ -1,13 +1,23 @@
 ---
 name: stock-etf-strategies
+public-name: stock-etf-strategies
+visibility: public
 title: "Stock and ETF Strategies in LumiBot"
 description: "Load before writing, editing, debugging or backtesting a LumiBot strategy that trades stocks or ETFs, including rotation, rebalancing, momentum, trend following, moving-average crossovers, breakouts, opening-range breakouts, mean reversion, RSI or Bollinger setups, and baskets, or when a stock backtest makes no trades. Covers universe choice, warmup history, cash-bounded sizing, fractional shares, rebalancing, market hours, gaps, benchmarks and BotSpot backtest workflow."
-visibility: public
-license: MIT
 ---
 > PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
-For external clients, load guides with the BotSpot MCP `skills` tool (action=get, name=<skill>). Resource identifiers written as <skill>:references/<file> use name=<skill> and reference=references/<file>. Installed native clients can read the same local reference file. The following is shared authoring guidance; use the tools actually advertised by your client.
+## Loading this same guide in different clients
+
+This canonical file is used internally and externally without rewriting. In
+clients with native skills, use the advertised skill-loading and resource tools;
+these may be named `load_skill` and `load_skill_resource`. In the BotSpot MCP,
+use `skills` with action=list or action=get. The frontmatter's `name` is the
+canonical skill identity and `public-name` is its compatible MCP discovery name.
+For a qualified canonical resource identity, use that public-name as MCP name
+and pass the unchanged relative reference path. Native resource tools use their
+advertised resource identities. Discover the actual tools before calling them;
+a tool name in an example does not install that tool in another client.
 
 # Stock and ETF Strategies in LumiBot
 

@@ -1,21 +1,33 @@
 ---
-name: lumibot-strategy-building
+name: strategy-building-core
+public-name: lumibot-strategy-building
+visibility: public
 title: "Building LumiBot Strategies on BotSpot"
 description: "Use as the main direct-edit strategy-building skill for new BotSpot strategies and substantial strategy rewrites. Choose the decision owner first, preserving explicit architecture choices and the ordinary hourly/daily AI-owned default. It owns the build, plan, validation and final handoff. A fast Python/hybrid recommendation explains avoided AI round-trip latency and credit use. Load supported LumiBot API references only as needed."
-visibility: public
-license: MIT
 ---
 > PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
-For external clients, load guides with the BotSpot MCP `skills` tool (action=get, name=<skill>). Resource identifiers written as <skill>:references/<file> use name=<skill> and reference=references/<file>. Installed native clients can read the same local reference file. The following is shared authoring guidance; use the tools actually advertised by your client.
+## Loading this same guide in different clients
+
+This canonical file is used internally and externally without rewriting. In
+clients with native skills, use the advertised skill-loading and resource tools;
+these may be named `load_skill` and `load_skill_resource`. In the BotSpot MCP,
+use `skills` with action=list or action=get. The frontmatter's `name` is the
+canonical skill identity and `public-name` is its compatible MCP discovery name.
+For a qualified canonical resource identity, use that public-name as MCP name
+and pass the unchanged relative reference path. Native resource tools use their
+advertised resource identities. Discover the actual tools before calling them;
+a tool name in an example does not install that tool in another client.
 
 # Strategy Building Core
 
 Choose the decision owner before writing the first file. Ordinary hourly/daily
 new builds default to AI-owned decisions, even when the user describes exact
 indicators without saying AI. Load `lumibot-ai-agents`: exactly one agent may
-trade, research/planning agents cannot trade, and every configured agent runs
-each trading iteration. Preserve an explicit Python/hybrid choice and use the
+trade and one or more useful research/planning agents cannot trade. Run the
+roles needed for a decision, with fresh evidence for new setups and relevant
+dated research available for management. Quiet monitoring is not a decision
+cycle. Preserve an explicit Python/hybrid choice and use the
 cadence/latency decision rules below for faster signals. A no-auto-backtest
 preference changes validation permission, not this architecture choice.
 
@@ -527,9 +539,11 @@ the user supplied the exact fallback evidence needed for the requested fix.
 
 
 
-The shared guide continues in the ordered resources below. Load the relevant continuation; these are complete source sections, not summaries.
+## Required shared continuation
 
-- Part 2: `references/shared-guide-02.md`
-- Part 3: `references/shared-guide-03.md`
-- Part 4: `references/shared-guide-04.md`
-- Part 5: `references/shared-guide-05.md`
+Before writing or editing a strategy, read every continuation in order. These are the remaining sections of this same canonical skill, including required workflow and API guidance:
+
+- `references/shared-guide-02.md`
+- `references/shared-guide-03.md`
+- `references/shared-guide-04.md`
+- `references/shared-guide-05.md`

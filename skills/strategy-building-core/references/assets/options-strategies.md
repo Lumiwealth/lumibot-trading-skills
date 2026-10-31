@@ -11,7 +11,7 @@ OPTIONS STRATEGIES
 
 Use this skill when generating, refining, or rescuing US-listed option strategies, including single-leg options, spreads, wheel strategies, covered calls, cash-secured puts, and volatility strategies.
 
-Always also load `options-strategies` before changing options code.
+Always also load `lumibot-options-helper` before changing options code.
 
 First-cycle rules:
 - Prefer SPY, QQQ, IWM, GLD, SLV, or the exact liquid optionable symbols the user named.

@@ -1,4 +1,23 @@
+---
+name: fast-lumibot-strategies
+public-name: fast-lumibot-strategies
+visibility: public
+title: "Fast and Responsive LumiBot Strategies"
+description: "Load when a LumiBot strategy is slow, scans many symbols or option contracts, needs fast order handling (cancel after N seconds, immediate hedge or pair legs, OTO/OCO/bracket), or when backtests take too long. Covers sleeptime choice, batched data calls, caching, self.indicators, chunked scanners, bounded quote batching and order state machines."
+---
 > PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
+## Loading this same guide in different clients
+
+This canonical file is used internally and externally without rewriting. In
+clients with native skills, use the advertised skill-loading and resource tools;
+these may be named `load_skill` and `load_skill_resource`. In the BotSpot MCP,
+use `skills` with action=list or action=get. The frontmatter's `name` is the
+canonical skill identity and `public-name` is its compatible MCP discovery name.
+For a qualified canonical resource identity, use that public-name as MCP name
+and pass the unchanged relative reference path. Native resource tools use their
+advertised resource identities. Discover the actual tools before calling them;
+a tool name in an example does not install that tool in another client.
 
 # Fast and Responsive LumiBot Strategies
 

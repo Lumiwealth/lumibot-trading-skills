@@ -29,7 +29,7 @@ Rescue guidance:
 ## Trailing protection is state for the held position
 
 Use the complete tested price policy in
-`lumibot-strategy-building:references/trailing-stop-policy.py`. Save it as a normal
+`strategy-building-core:references/trailing-stop-policy.py`. Save it as a normal
 helper through `create_file(sourceResourceKey=...)` and import that saved module.
 It supplies a stop price; the existing protection owner still reconciles actual
 orders, position-wide quantity, partial fills and cancellations.

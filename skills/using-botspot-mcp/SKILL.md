@@ -1,13 +1,23 @@
 ---
 name: using-botspot-mcp
+public-name: using-botspot-mcp
+visibility: public
 title: "Using the BotSpot MCP well"
 description: "Load first in any session connected to the BotSpot MCP. Explains what BotSpot does, which tools to call in what order to build, backtest, compare, share and deploy a LumiBot trading strategy, how sign-in works, and the mistakes that waste time."
-visibility: public
-license: MIT
 ---
 > PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
-For external clients, load guides with the BotSpot MCP `skills` tool (action=get, name=<skill>). Resource identifiers written as <skill>:references/<file> use name=<skill> and reference=references/<file>. Installed native clients can read the same local reference file. The following is shared authoring guidance; use the tools actually advertised by your client.
+## Loading this same guide in different clients
+
+This canonical file is used internally and externally without rewriting. In
+clients with native skills, use the advertised skill-loading and resource tools;
+these may be named `load_skill` and `load_skill_resource`. In the BotSpot MCP,
+use `skills` with action=list or action=get. The frontmatter's `name` is the
+canonical skill identity and `public-name` is its compatible MCP discovery name.
+For a qualified canonical resource identity, use that public-name as MCP name
+and pass the unchanged relative reference path. Native resource tools use their
+advertised resource identities. Discover the actual tools before calling them;
+a tool name in an example does not install that tool in another client.
 
 # Using the BotSpot MCP well
 

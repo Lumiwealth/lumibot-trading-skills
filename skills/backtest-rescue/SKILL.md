@@ -1,13 +1,23 @@
 ---
-name: lumibot-backtesting
+name: backtest-rescue
+public-name: lumibot-backtesting
+visibility: public
 title: "Backtest and debug a LumiBot strategy"
 description: "Use for strategy repair and unfinished first-cycle validation after failed, timed-out or zero-trade backtests, including a terminal wake or a request to explain what happened. Repair pending-entry state through its full lifecycle, not only initialization. For read-only investigation, engine diagnosis, historical-data coverage, or a request not to edit or rerun, use backtest-analysis instead."
-visibility: public
-license: MIT
 ---
 > PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
-For external clients, load guides with the BotSpot MCP `skills` tool (action=get, name=<skill>). Resource identifiers written as <skill>:references/<file> use name=<skill> and reference=references/<file>. Installed native clients can read the same local reference file. The following is shared authoring guidance; use the tools actually advertised by your client.
+## Loading this same guide in different clients
+
+This canonical file is used internally and externally without rewriting. In
+clients with native skills, use the advertised skill-loading and resource tools;
+these may be named `load_skill` and `load_skill_resource`. In the BotSpot MCP,
+use `skills` with action=list or action=get. The frontmatter's `name` is the
+canonical skill identity and `public-name` is its compatible MCP discovery name.
+For a qualified canonical resource identity, use that public-name as MCP name
+and pass the unchanged relative reference path. Native resource tools use their
+advertised resource identities. Discover the actual tools before calling them;
+a tool name in an example does not install that tool in another client.
 
 --------------------------------------------------------------
 BACKTEST RESCUE WORKFLOW
@@ -290,11 +300,13 @@ Rules review rule: a terminal wake contains factual backtest state only. When th
 
 Raw completed rule: do not treat the raw manager word `completed` as first-cycle success by itself. Success requires terminal completion plus at least one real filled trade, or a stricter user-specified performance target if one exists. Raw `completed` with `tradeCount=0`, `resultClassification="no_trades"`, `firstCycleOutcome="no_trades"`, or UI/API status `completed_no_trades` is first-cycle repair mode until a filled-trade success, real blocker, user stop, or attempt budget applies.
 
-Timeout override: a `terminated_timeout`, `timed_out` / timed-out run, `failureCategory=timeout`, or `tradeCountStatus=not_applicable_timeout` is NEVER "completed with no trades", even if the wake includes `tradeCount=0` or a no-trade classification. Narrate a timeout / platform-infrastructure failure. Prefer hosted runtime logs/logs first, subject to the hook queryability rules above. Do not enter the no-trade rule-loosening or zero-trade rescue sequence unless the run truly completed: `completed_no_trades`, or raw `completed` with `tradeCountStatus="counted"` and `tradeCount=0`, with no timeout evidence. Timeout evidence takes precedence over zero counts and no-trade labels. Preserve strategy rules and code unless logs establish a concrete, intent-preserving technical repair; a timeout alone does not justify a strategy edit. This override takes precedence over the rescue edit/rerun sequence below.
+Timeout override: a `terminated_timeout`, `timed_out` / timed-out run, `failureCategory=timeout`, or `tradeCountStatus=not_applicable_timeout` is NEVER "completed with no trades", even if the wake includes `tradeCount=0` or a no-trade classification. Narrate a timeout / platform-infrastructure failure. Prefer runtime logs first, subject to the hook queryability rules above. Do not enter the no-trade rule-loosening or zero-trade rescue sequence unless the run truly completed: `completed_no_trades`, or raw `completed` with `tradeCountStatus="counted"` and `tradeCount=0`, with no timeout evidence. Timeout evidence takes precedence over zero counts and no-trade labels. Preserve strategy rules and code unless logs establish a concrete, intent-preserving technical repair; a timeout alone does not justify a strategy edit. This override takes precedence over the rescue edit/rerun sequence below.
 
 
 
-The shared guide continues in the ordered resources below. Load the relevant continuation; these are complete source sections, not summaries.
+## Required shared continuation
 
-- Part 2: `references/shared-guide-02.md`
-- Part 3: `references/shared-guide-03.md`
+Before writing or editing a strategy, read every continuation in order. These are the remaining sections of this same canonical skill, including required workflow and API guidance:
+
+- `references/shared-guide-02.md`
+- `references/shared-guide-03.md`

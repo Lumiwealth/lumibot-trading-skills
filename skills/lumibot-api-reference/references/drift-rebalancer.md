@@ -24,7 +24,7 @@ Do not mark a scheduled allocation complete from this return value or put all
 remaining execution behind the next weekly/monthly signal date.
 
 For a normal Python-owned whole-unit cash portfolio, load
-`lumibot-strategy-building:references/rebalance-state.md` and its complete
+`strategy-building-core:references/rebalance-state.md` and its complete
 `rebalance-example.py` source-copy integration. Keep the original signal and
 weights in the strategy file; the retained execution owner finishes accepted
 work between signal dates. Other supported account, fractional and order

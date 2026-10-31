@@ -17,7 +17,7 @@ Choose the responsible mechanics owner. A coupled scan/cancel/late-fill repair
 without a safe controller uses the complete fast-order-example implementation;
 its own short reservations protect callbacks, polling and broker I/O. An
 already coherent complex operation with competing duplicate preparation callers
-instead uses `lumibot-strategy-building:references/order-operation-ownership.md`.
+instead uses `strategy-building-core:references/order-operation-ownership.md`.
 Do not mix a new partial state machine or whole-method I/O lock into the complete
 controller merely because both resources discuss hedging. Preserve the existing
 strategy's actual investment policy in either route.
@@ -177,7 +177,7 @@ path. Loading this internal reference does not show that implementation to the
 user. For a new generic deadline-plus-hedge pattern, present the complete tested
 class in `references/deadline-order-example.py` with all its method bodies unchanged; explain its input hooks.
 Load it with the advertised tool call
-`skills reference get(resource_key="lumibot-api-reference:references/deadline-order-example.py")`.
+`load_skill_resource(resource_key="lumibot-api-reference:references/deadline-order-example.py")`.
 This Python file is registered in the callable resource enum. Loading it is the
 same lifecycle implementation task, not an unrelated second reference. Continue
 to that exact resource before answering a complete-pattern request; a timing-only
@@ -253,7 +253,7 @@ calculated deadline, cancel decision, cancel request start and return, the
 only for the final status or raw response omits when it became observable.
 
 For an existing saved-file callback-versus-polling or duplicate-hedge repair,
-load lumibot-strategy-building's `references/order-operation-ownership.md` before
+load strategy-building-core's `references/order-operation-ownership.md` before
 editing. Start at the shared confirmed-fill initializer itself: its operation
 lookup/create/publication, original-entry claim and active-operation pointer
 must have the same state owner from every callback and polling caller. A lock
@@ -296,7 +296,7 @@ cancel-pending attribution until a confirmed terminal result or a fill resolves
 it, including if a fill arrives while the cancellation response is pending.
 
 To repair saved code that sent a duplicate hedge or duplicate order, also
-load `lumibot-strategy-building` resource `references/order-operation-ownership.md`
+load `strategy-building-core` resource `references/order-operation-ownership.md`
 before editing. It covers every path that can submit the same obligation; this
 reference covers deadlines and callbacks only.
 

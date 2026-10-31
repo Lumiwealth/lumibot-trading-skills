@@ -1008,9 +1008,5 @@ for stock in custom_data.get("stocks", []):
             self.log_message(f"Placed a buy order for {symbol} based on strong earnings growth and analyst rating.", color="green")
             break
 
-# Example - Using add_marker/add_line/add_ohlc for debugging and visualization:
-# -----------------------------------------------------------------------------
-# This example demonstrates how to use add_marker, add_line, and add_ohlc to visualize
-# important events in your strategy, such as buy/sell signals or indicator crossovers.
 
-Continuation: `references/examples.part-02.md`
+Continue this same canonical reference in `references/examples.part-02.md`.

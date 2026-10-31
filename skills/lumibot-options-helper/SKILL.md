@@ -1,13 +1,23 @@
 ---
-name: options-strategies
+name: lumibot-options-helper
+public-name: options-strategies
+visibility: public
 title: "Options Strategies in LumiBot"
 description: "Use as the focused mandatory skill for LumiBot options code fixes, options no-trade rescue, OptionsHelper usage, options chains, option market evaluation, expirations/expiries, strikes, legs, spreads, liquidity, and spread order helpers. Load this exact skill before editing options code; lumibot-api-reference alone is not enough for options fixes."
-visibility: public
-license: MIT
 ---
 > PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
-For external clients, load guides with the BotSpot MCP `skills` tool (action=get, name=<skill>). Resource identifiers written as <skill>:references/<file> use name=<skill> and reference=references/<file>. Installed native clients can read the same local reference file. The following is shared authoring guidance; use the tools actually advertised by your client.
+## Loading this same guide in different clients
+
+This canonical file is used internally and externally without rewriting. In
+clients with native skills, use the advertised skill-loading and resource tools;
+these may be named `load_skill` and `load_skill_resource`. In the BotSpot MCP,
+use `skills` with action=list or action=get. The frontmatter's `name` is the
+canonical skill identity and `public-name` is its compatible MCP discovery name.
+For a qualified canonical resource identity, use that public-name as MCP name
+and pass the unchanged relative reference path. Native resource tools use their
+advertised resource identities. Discover the actual tools before calling them;
+a tool name in an example does not install that tool in another client.
 
 --------------------------------------------------------------
 OPTIONSHELPER COMPONENT
@@ -150,9 +160,9 @@ ordinary saved helper; connect its complete owner, do not copy only its docstrin
 examples are in this SKILL.md; do not invent `references/options-helper.md`.
 The general API reference is a DIFFERENT skill. If its broad component overview
 is needed, the exact call is
-`skills reference get(skill_name="lumibot-api-reference", file_path="references/components-overview.md")`.
+`load_skill_resource(skill_name="lumibot-api-reference", file_path="references/components-overview.md")`.
 That `references/components-overview.md` path belongs to `lumibot-api-reference`,
-not `options-strategies`. This focused skill already
+not `lumibot-options-helper`. This focused skill already
 contains the OptionsHelper methods, so do not load a broad overview merely to
 verify a method documented below. There is no `references/options.md` resource.
 
@@ -336,8 +346,8 @@ The closing list is not one `Order`: do not pass that list to singular
 `submit_orders(..., is_multileg=True)` package path.
 
 The methods and signatures required for this pattern are fully documented in
-this skill. Do not repeatedly call `LumiBot source search` or
-`LumiBot source read` merely to rediscover them. Inspect source only when
+this skill. Do not repeatedly call `search_lumibot_source` or
+`read_lumibot_source_file` merely to rediscover them. Inspect source only when
 an actual tool or runtime error contradicts this documented contract. A code
 review can verify that the strategy requests one package, but completed
 backtest evidence cannot prove broker-level atomicity unless the order and fill
@@ -408,7 +418,7 @@ but make the saved revision tradeable:
   `if backtesting` branches. The rescue revision must be a normal strategy that
   can trade because the entry/order path is practical.
 - For a direct existing-strategy options edit, save and read back the complete
-  result. When `strategy review` is available, resolve its supported
+  result. When `review_strategy_change` is available, resolve its supported
   in-scope findings and review the corrected saved revision before finishing.
   A successful save/readback does not discharge supported in-scope review findings.
   This does not require a backtest: do not call `start_backtest` merely to
@@ -439,16 +449,16 @@ repeated order refreshes still dominate the supplied profile. Complete the
 supported optimization, read back the saved files and resolve in-scope review
 findings in the same turn. Keep user pricing and eligibility unchanged.
 
-This skill has no supplementary reference files: skills get returned its full
+This skill has no supplementary reference files: load_skill returned its full
 content. The quote reader belongs to a different skill. Use these exact pairs:
-`skills reference get(skill_name="lumibot-api-reference",
+`load_skill_resource(skill_name="lumibot-api-reference",
 file_path="references/scanner-performance.md")` and, when implementing the
-reader, `skills reference get(skill_name="lumibot-api-reference",
+reader, `load_skill_resource(skill_name="lumibot-api-reference",
 file_path="references/quote-snapshot-example.py")`.
 A RESOURCE_NOT_FOUND result means the requested pair is wrong; inspect the
 advertised catalog, correct that pair and continue. It does not mean the
 user must resolve a blocker or that authorized coding must stop. Do not
-request `references/components-overview.md` from options-strategies.
+request `references/components-overview.md` from lumibot-options-helper.
 
 Call file tools using their visible input schema. Put `path`, `editHandle` and
 `operations` directly in the `patch_file` arguments, or `content` in the

@@ -26,7 +26,7 @@ close_position(self, asset: Union[str,Asset], fraction: float = 1.0) -> Optional
 ## Cash-bounded stock entry and complete exits
 
 The canonical, executable stock-entry and full-exit examples now live near the
-start of `lumibot-strategy-building`. Load that skill when implementing or repairing
+start of `strategy-building-core`. Load that skill when implementing or repairing
 cash-only execution. The API signatures above remain the method contract;
 the example is strategy code, not an additional built-in Strategy method.
 
@@ -60,10 +60,12 @@ INDICATORS (self.indicators)
 
 ### Complete position protection between signal checks
 
-A daily entry schedule does not make a protective stop a daily price test. A price comparison followed by `close_position` during the next daily iteration leaves the holding unprotected in between. Use a standing broker stop and reconcile its remaining quantity and fill basis after partial/full entries, cancellations and exits. The following complete owner is rendered from `lumibot-strategy-building/references/protective-position-example.py`; its native behavior contracts remain attached to that canonical source. It is strategy source to adapt, not an import from an installed SDK module. Preserve the caller's indicators, sizing, stop policy and cadence.
+A daily entry schedule does not make a protective stop a daily price test. A price comparison followed by `close_position` during the next daily iteration leaves the holding unprotected in between. Use a standing broker stop and reconcile its remaining quantity and fill basis after partial/full entries, cancellations and exits. The following complete owner is rendered from `strategy-building-core/references/protective-position-example.py`; its native behavior contracts remain attached to that canonical source. It is strategy source to adapt, not an import from an installed SDK module. Preserve the caller's indicators, sizing, stop policy and cadence.
 
 <!-- generated-position-protection-owner:start -->
 ```python
+# PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
+
 """Standing stop and accepted-exit reconciliation for one owned long position.
 
 Adapt this component into the strategy, preserving its signals and sizing. The

@@ -1,17 +1,52 @@
 ---
 name: lumibot-ai-agents
+public-name: lumibot-ai-agents
+visibility: public
 title: "AI-Powered LumiBot Strategies (LLM Agents That Research and Trade)"
 description: "Builds AI-owned or hybrid BotSpot automation after cadence, latency, and the user's explicit architecture choice have been considered. Upstream prompts define a bounded evidence packet; exactly one terminal trading/risk agent owns orders."
-visibility: public
-license: MIT
 ---
 > PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
-For external clients, load guides with the BotSpot MCP `skills` tool (action=get, name=<skill>). Resource identifiers written as <skill>:references/<file> use name=<skill> and reference=references/<file>. Installed native clients can read the same local reference file. The following is shared authoring guidance; use the tools actually advertised by your client.
+## Loading this same guide in different clients
+
+This canonical file is used internally and externally without rewriting. In
+clients with native skills, use the advertised skill-loading and resource tools;
+these may be named `load_skill` and `load_skill_resource`. In the BotSpot MCP,
+use `skills` with action=list or action=get. The frontmatter's `name` is the
+canonical skill identity and `public-name` is its compatible MCP discovery name.
+For a qualified canonical resource identity, use that public-name as MCP name
+and pass the unchanged relative reference path. Native resource tools use their
+advertised resource identities. Discover the actual tools before calling them;
+a tool name in an example does not install that tool in another client.
 
 --------------------------------------------------------------
 AI AGENTS COMPONENT
 --------------------------------------------------------------
+
+## Default architecture and inexpensive attention
+
+For an AI-owned trading strategy, use exactly one trading/risk agent and one or
+more useful non-trading researchers. Use more researchers when the job benefits
+from distinct expertise or dissent; do not force exactly two total agents.
+The trader chooses instruments, contracts, quantities, risk, prices and orders
+through its tools. An AI label or a disabled trader beside Python sizing and
+submission does not satisfy an AI-owned request. Honor an explicit Python-owned
+strategy, including non-trading AI research, without forcing an execution agent.
+
+Separate entry opportunities, option expiration, expected holding period and
+management reviews. A weekly research schedule does not mean a weekly new trade
+or automatic weekly roll. A quiet minute is an observation, not a decision cycle.
+Use cheap read-only observations between AI decisions, with saved AI-selected
+attention conditions, episode deduplication and exact operation/order identity.
+New entries use useful current research; an urgent management decision may use
+relevant dated research, refreshing it when necessary. Do not rerun every role
+merely because the Python loop woke up. Never move selection, sizing or order
+judgment into a Python controller to reduce inference.
+
+Before implementing frequent monitoring, load `references/event-driven-attention.md`.
+Check the installed runtime API and the actual Manager runtime before using a
+new capability. Source code or a configured model is not proof that a hosted
+backtest has that capability or Login with ChatGPT funding.
 
 ## Explicit Python order ownership
 
@@ -287,12 +322,12 @@ strategy must not call the model on every Python iteration.
 
 Pure clock scheduling around the whole AI decision cycle is valid for AI-only
 requests. It does not choose setups, interpret research, size positions or
-submit orders. Every scheduled decision cycle still runs all upstream roles
-and the terminal trader. A polling interval or a daily sleep alone does not
+submit orders. Every new-setup cycle runs its useful research roles and the terminal trader.
+Management may use relevant dated research and refresh it when necessary. A polling interval or a daily sleep alone does not
 implement multiple named windows. Use the framework's scheduling/lifecycle
-callbacks or a clock-and-last-window check before the whole team. Never put a
-Python gate between the researcher and trader based on research content or
-market/account data. The minimal daily example below illustrates one daily
+callbacks or a clock-and-last-window check before the whole team. Never let Python interpret research or choose whether a proposed trade is good.
+A typed observation of an AI-selected attention condition may wake a decision;
+it cannot choose the action that follows. The minimal daily example below illustrates one daily
 cycle; adapt its scheduling when the user requests several distinct windows.
 
 A hard date is not a retry window. When the user says an entry may occur on one
@@ -352,10 +387,10 @@ Do not invent risk caps, forced stops or asset bans the user rejected.
 When the current user asks to build/create/make a new AI trading team,
 investment committee, sector pod, named-investor team, or Citadel-style AI
 strategy, do not jump straight from this skill to `create_strategy`. First load
-`lumibot-strategy-building` when visible, then create the visible first-build plan
+`strategy-building-core` when visible, then create the visible first-build plan
 with `create_plan`. The valid first-build shape is:
 
-`skills get("lumibot-strategy-building")` -> `create_plan` -> first-build research
+`load_skill("strategy-building-core")` -> `create_plan` -> first-build research
 when required -> `create_strategy` -> verify its workspace attachment ->
 targeted `get_file` -> `replace_file` with a complete real AI-team `main.py` ->
 `get_file` readback of the edited revision -> complete the implementation row
@@ -509,7 +544,7 @@ For ordinary new automation and when the user asks for AI-only, agent-only, no
 hybrid logic, or says Python should only create and run the agent, this contract takes
 priority over deterministic strategy-building guidance:
 
-- Load this skill. Do not load `options-strategies`, including for options
+- Load this skill. Do not load `lumibot-options-helper`, including for options
   or multi-leg strategies. The agent uses LumiBot's generic built-in market,
   account, options, position, and order tools directly.
 - Generate a minimal strategy class with at least one upstream non-trading
@@ -633,6 +668,8 @@ order, pending-order, and verification mechanics.
 
 
 
-The shared guide continues in the ordered resources below. Load the relevant continuation; these are complete source sections, not summaries.
+## Required shared continuation
 
-- Part 2: `references/shared-guide-02.md`
+Before writing or editing a strategy, read every continuation in order. These are the remaining sections of this same canonical skill, including required workflow and API guidance:
+
+- `references/shared-guide-02.md`

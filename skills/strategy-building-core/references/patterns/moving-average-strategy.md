@@ -16,7 +16,7 @@ Use this skill when generating, refining, or rescuing SMA, EMA, crossover, trend
 This pattern supplies signals; it does not implement position protection. A
 daily moving-average decision does not turn a requested loss limit into a
 daily-close-only exit. For a requested protective stop, load
-`lumibot-strategy-building:references/protective-position-example.py` before
+`strategy-building-core:references/protective-position-example.py` before
 writing the order lifecycle. Its complete owner connects standing protection
 to actual filled position size/basis and keeps an accepted exit outstanding
 through cancellation, rejection and later signal changes. Keep the signal,

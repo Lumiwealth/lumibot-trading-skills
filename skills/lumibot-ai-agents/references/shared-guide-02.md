@@ -47,7 +47,7 @@ evidence. A missing scope or failure
 from a secret-metadata tool is not permission to skip the required start.
 
 For a new AI trading-team build, use the full first-build flow from
-`lumibot-strategy-building`: create/maintain the visible plan, create the neutral
+`strategy-building-core`: create/maintain the visible plan, create the neutral
 workspace, read the returned `strategyId`/`revisionId`, replace
 `main.py` with the real AI-team implementation, read back the new edited
 revision, then start validation. A `create_strategy` result with

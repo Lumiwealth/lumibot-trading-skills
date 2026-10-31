@@ -5,7 +5,7 @@
 Options and complex order no-trade pattern:
 - If an options backtest has chains and option prices but still completes with zero trades, inspect whether the code only tries a complex order and returns when any leg has missing quotes, unusable bid/ask, a wide spread, missing Greeks/delta, missing expiration, or too-strict liquidity.
 - Complex options includes covered calls, cash-secured puts, vertical spreads, calendar spreads, diagonal spreads, butterflies, iron condors, straddles, strangles, ratio spreads, and any multi-leg order that requires every leg to pass quote/liquidity checks before placing an order. Do not make rescue guidance wheel-specific.
-- Load `options-strategies` before editing options code. Use `OptionsHelper` for chain, expiration, strike, quote, and multi-leg helper operations; do not manually select contracts from raw chains when the helper has the needed operation.
+- Load `lumibot-options-helper` before editing options code. Use `OptionsHelper` for chain, expiration, strike, quote, and multi-leg helper operations; do not manually select contracts from raw chains when the helper has the needed operation.
 - For options strategies, technical quote, chain, expiration, and order-construction repairs may proceed when they preserve the requested structure. Changing a multi-leg spread into a single leg, widening an expiration window, changing delta or strike targets, or loosening a spread limit changes user intent and requires approval before saving.
 - Do not solve this by tightening option filters. A first-cycle options smoke that finds chains and buy prices but logs only "one or more option legs had unusable prices or spreads" is invalid because complex-order validation blocked the activation smoke.
 - Do not add dummy fills, fake option legs, hardcoded proof-only orders, or `if backtesting` branches. The rescue revision must be understandable as a normal strategy that can trade because the entry/order path was made practical.
@@ -43,7 +43,7 @@ Long-running backtests:
 - Backtest ETA is noisy. The first simulated day can be much slower than later days because the runner starts infrastructure, imports LumiBot, and loads data. Say that plainly when reporting ETA.
 
 Success response:
-- Keep the architecture rationale from `lumibot-strategy-building` in the final
+- Keep the architecture rationale from `strategy-building-core` in the final
   handoff, including when validation is queued: fixed fast rules run in Python
   because calling an AI model in the trading loop adds variable latency and
   model-credit cost. Separately disclose feed, broker and order-fill limits;

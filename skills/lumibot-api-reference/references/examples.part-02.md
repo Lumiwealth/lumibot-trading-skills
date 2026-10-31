@@ -1,5 +1,9 @@
 > PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
+# Example - Using add_marker/add_line/add_ohlc for debugging and visualization:
+# -----------------------------------------------------------------------------
+# This example demonstrates how to use add_marker, add_line, and add_ohlc to visualize
+# important events in your strategy, such as buy/sell signals or indicator crossovers.
 # IMPORTANT: Always pass the asset parameter when you have an Asset object - this enables
 # proper multi-symbol charting where indicators overlay on their corresponding asset's price chart.
 

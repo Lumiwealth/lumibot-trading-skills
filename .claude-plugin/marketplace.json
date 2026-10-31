@@ -23,14 +23,14 @@
       ],
       "metadata": {
         "skills": [
+          "backtest-rescue",
           "fast-lumibot-strategies",
           "lumibot-ai-agents",
           "lumibot-api-reference",
-          "lumibot-backtesting",
-          "lumibot-indicators",
-          "lumibot-strategy-building",
-          "options-strategies",
+          "lumibot-indicators-and-charting",
+          "lumibot-options-helper",
           "stock-etf-strategies",
+          "strategy-building-core",
           "using-botspot-mcp"
         ]
       }

@@ -11,7 +11,7 @@ exactly one terminal trading/risk agent in `initialize()`, and
 agent. Put the strategy-specific policy in agent prompts and context. LumiBot's
 built-in runtime skills supply reusable stock, options, and order mechanics.
 Never load
-`options-strategies` for these builds. Never import `OptionsHelper`.
+`lumibot-options-helper` for these builds. Never import `OptionsHelper`.
 
 Default model for new AI-only agents: the model marked (default) in the CURRENT
 AI MODELS table (its exact id) through BotSpot-managed inference (no saved personal provider key),
@@ -52,7 +52,15 @@ faster behavior and keep all configured agents on the chosen trading cycle.
 A finer clock must not silently become repeated one-minute AI calls throughout
 a wider entry or exit window.
 
-Run every configured research agent and the sole trading agent on every trading iteration, including exit/management cycles. Pass that iteration's actual research answer to the trader in every branch; do not bypass the researcher for exits. Keep entry, hold and exit policy in their prompts. A daily clock cannot reach both an afternoon entry and a following-morning exit. Select a cadence fine enough for every requested window, and put current clock/session context and the named windows in both agents' prompts so the trader can act only in the correct window. Do not copy a daily cadence into an intraday mandate.
+For a new setup, run useful research and the sole trader, passing the actual
+research answer unchanged. Management can use relevant dated research and
+refresh it when necessary; do not require a new research run merely to close a
+known position. If the user explicitly wants the whole team on every decision,
+honor that choice. Keep entry, hold and exit policy in prompts. A daily clock
+cannot reach an afternoon entry and following-morning exit: schedule those
+decision windows explicitly. When hybrid observations are appropriate, load
+`references/event-driven-attention.md`; a finer observation clock must not
+become a model heartbeat.
 
 ```python
 from pathlib import Path

@@ -32,11 +32,14 @@ team-specific shapes.
   the minimum two-agent topology, warn about credits, latency and provider
   limits, and require explicit confirmation.
 
-Clock scheduling surrounds the whole decision cycle, including for AI-only
-requests: run every upstream role and the terminal trader inside each requested
-window. A coarse `sleeptime` alone does not implement multiple named windows.
-Use native lifecycle scheduling or a clock-only check before the whole team;
-never inspect research or market data in Python to decide which role runs.
+Clock scheduling controls decision opportunities, including AI-only requests.
+For a new setup, run the relevant researchers and sole trader. In an existing
+position's management event, the trader may use relevant dated research and
+request a refresh when needed. A coarse `sleeptime` alone does not implement
+multiple named windows. Cheap typed observations of AI-selected conditions may
+wake a decision; Python must not interpret research, choose an action or submit
+an independent order. Read `references/event-driven-attention.md` for persistence,
+deduplication, order identity and inference reporting. Quiet polling runs no AI.
 
 ## Recommended Team Shapes
 

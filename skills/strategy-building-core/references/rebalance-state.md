@@ -4,7 +4,7 @@
 
 Use `references/rebalance-example.py` as a complete, tested reference for an
 ordinary long-only, whole-unit cash portfolio. Save the complete registered source as a normal strategy helper file with
-`create_file(sourceResourceKey="lumibot-strategy-building:references/rebalance-example.py")`,
+`create_file(sourceResourceKey="strategy-building-core:references/rebalance-example.py")`,
 using the actual strategy/revision identity and a fresh path. Import that saved
 module from the existing strategy; never import a private skill path or transcribe
 a shorter controller. If an existing-file-only edit forbids a new helper, keep

@@ -217,7 +217,7 @@ any live-only check.
 ## Supported implementation references
 
 The implementation catalog has one owner: `lumibot-api-reference`. Use its
-existing `skills reference get` references for the specific API fact needed by
+existing `load_skill_resource` references for the specific API fact needed by
 this build or edit. The core workflow does not embed a second copy of those
 references. Preserve the user's architecture and requirements while using
 the supported API; a reference example is not permission to change their rules.

@@ -1,19 +1,29 @@
 ---
 name: lumibot-api-reference
+public-name: lumibot-api-reference
+visibility: public
 title: "LumiBot API Reference"
 description: "Use for LumiBot strategy APIs, lifecycle hooks, orders, positions, entities, Asset construction, Bars/historical data, crypto/base/quote pairs, futures/forex/options entities, examples, notes/reminders, fast order management, slow basket scanners, batch bid/ask quotes, drift rebalancing, Perplexity helper, and general LumiBot method/property questions."
-visibility: public
-license: MIT
 ---
 > PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
-For external clients, load guides with the BotSpot MCP `skills` tool (action=get, name=<skill>). Resource identifiers written as <skill>:references/<file> use name=<skill> and reference=references/<file>. Installed native clients can read the same local reference file. The following is shared authoring guidance; use the tools actually advertised by your client.
+## Loading this same guide in different clients
+
+This canonical file is used internally and externally without rewriting. In
+clients with native skills, use the advertised skill-loading and resource tools;
+these may be named `load_skill` and `load_skill_resource`. In the BotSpot MCP,
+use `skills` with action=list or action=get. The frontmatter's `name` is the
+canonical skill identity and `public-name` is its compatible MCP discovery name.
+For a qualified canonical resource identity, use that public-name as MCP name
+and pass the unchanged relative reference path. Native resource tools use their
+advertised resource identities. Discover the actual tools before calling them;
+a tool name in an example does not install that tool in another client.
 
 # LumiBot API Reference
 
 For timed cancellation, broker-terminal reconciliation or late-fill questions,
 first load `lumibot-api-reference:references/fast-order-management.md` with
-`skills reference get(resource_key="lumibot-api-reference:references/fast-order-management.md")`.
+`load_skill_resource(resource_key="lumibot-api-reference:references/fast-order-management.md")`.
 When a complete timed entry/cancel/hedge pattern is requested, also load the
 advertised `references/deadline-order-example.py` and give its complete code.
 The guide establishes the framework contract; the example implements it. This
@@ -51,7 +61,7 @@ semantics, market/data-provider behavior, or implementation examples that are
 more specific than the core build workflow.
 
 For authorized initial-budget compatibility repairs, follow the persistent
-baseline guidance in `lumibot-strategy-building`. A current property definition does
+baseline guidance in `strategy-building-core`. A current property definition does
 not prove its backing value was available in the failing deployed lifecycle.
 
 Use the conversation to distinguish a capability question from an accepted
@@ -65,7 +75,7 @@ without changes remains read-only.
 For a new generic timed-entry/cancel/hedge pattern, load
 `references/deadline-order-example.py` and include its complete tested lifecycle
 implementation in the answer. Its exact advertised callable identity is
-`skills reference get(resource_key="lumibot-api-reference:references/deadline-order-example.py")`.
+`load_skill_resource(resource_key="lumibot-api-reference:references/deadline-order-example.py")`.
 Python examples are callable reference resources, not unavailable script files.
 After the overview points to that implementation, load it before answering;
 the overview's deadline arithmetic alone does not implement the requested pattern.
@@ -80,7 +90,7 @@ not show the code to the user. Keep the actual reconciliation and completion
 methods; asset/signal inputs can remain strategy-specific.
 
 For an existing-file callback, polling or duplicate-hedge repair, also load
-lumibot-strategy-building's `references/order-operation-ownership.md`. Trace every
+strategy-building-core's `references/order-operation-ownership.md`. Trace every
 caller into the shared fill initializer and protect its lookup/create/publication
 and active-operation pointer with the same state owner before hedge submission.
 Preserve the existing strategy's entry, quantity, replacement and next-cycle
@@ -102,8 +112,8 @@ so retain failure isolation for every newly batched asset type. Finish and audit
 both demonstrated acquisition hot paths before answering. This focused resource is preferable to the long
 deadline/hedging reference for acquisition-only work; the user's word "speed" never overrides a demonstrated timed-order lifecycle defect. Do not introduce quote batching, chain-cache policy or extra reference inspection into a lifecycle repair when those are not its demonstrated cause.
 
-`options-strategies` is self-contained and has no supplementary resources.
-The editing instructions in `lumibot-strategy-building` are in its loaded body;
+`lumibot-options-helper` is self-contained and has no supplementary resources.
+The editing instructions in `strategy-building-core` are in its loaded body;
 its optional asset/pattern references are separate, exactly named resources.
 Not every loaded skill requires a separate resource. Never invent a placeholder
 path as a mandatory editing prerequisite. If an unadvertised lookup fails, use
@@ -112,7 +122,7 @@ that lookup failure does not prevent editing the saved file.
 
 Choose the existing architecture before loading a replacement controller. An
 existing coherent operation/queue owner with a duplicate hedge or partial-fill
-replacement defect uses the lumibot-strategy-building operation-ownership and
+replacement defect uses the strategy-building-core operation-ownership and
 quantity-accounting references. Repair its connected methods in place; do not
 add an unused controller or port the whole business strategy unnecessarily.
 When the combined scan/cancel/hedge owner is missing or incoherent, load
@@ -124,7 +134,7 @@ subclass, price and runner; a disconnected helper does not complete the repair.
 Mandatory resource-loading contract: this SKILL.md is routing guidance, not
 enough by itself for a code edit or precise runtime/API claim. After loading
 this skill for a semantic answer or saved-code edit, load exactly one smallest
-relevant reference file with `skills reference get`, then return to the user's
+relevant reference file with `load_skill_resource`, then return to the user's
 evidence or file work. Load a second reference only when the first one does not
 contain a different, specific API fact required by the request. Do not treat
 the reference catalog below as a checklist. `references/notes-reminders.md` is
@@ -148,11 +158,11 @@ retry with a shorter identifier or distinctive word, then read the relevant
 returned source path. Report a source-access blocker only when the tool actually
 returns one; distinguish an unsuccessful query from unavailable source.
 
-Load the smallest relevant reference file with `skills reference get`:
+Load the smallest relevant reference file with `load_skill_resource`:
 
 Every reference below belongs to this skill. Use its complete advertised
 `resource_key="lumibot-api-reference:references/<file>"`; the current tool does
-not take separate `skill_name` and `file_path` arguments. Never attach one of these reference paths to `lumibot-strategy-building` or another
+not take separate `skill_name` and `file_path` arguments. Never attach one of these reference paths to `strategy-building-core` or another
 skill, including when those skills were loaded in the same turn.
 
 - For fast cancel, cancel dispatch versus broker-terminal timestamps,
@@ -187,12 +197,12 @@ skill, including when those skills were loaded in the same turn.
   map is more useful than a narrow reference.
 
 There is no `references/options.md` file. For OptionsHelper construction and
-execution methods, load the focused `options-strategies` skill. It returns
+execution methods, load the focused `lumibot-options-helper` skill. It returns
 its complete guidance and has no supplementary reference files. If a general
 component map is needed, the exact call is
-`skills reference get(skill_name="lumibot-api-reference",
+`load_skill_resource(skill_name="lumibot-api-reference",
 file_path="references/components-overview.md")`. Do not attach that path to
-options-strategies. A missing resource is a correctable name/path lookup:
+lumibot-options-helper. A missing resource is a correctable name/path lookup:
 use the advertised owner and path and continue the authorized work.
 
 Routing examples:
@@ -225,6 +235,6 @@ Routing examples:
 - Unknown broad component question: load `references/components-overview.md`
   first, then the narrower reference it points to.
 
-For first-build or edit work, use this alongside `lumibot-strategy-building`; do
+For first-build or edit work, use this alongside `strategy-building-core`; do
 not replace the core workflow with API lookup alone. For indicator calculation
-or chart emission, use `lumibot-indicators`.
+or chart emission, use `lumibot-indicators-and-charting`.
