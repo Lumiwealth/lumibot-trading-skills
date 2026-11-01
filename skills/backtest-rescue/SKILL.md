@@ -27,6 +27,12 @@ If list_backtests returns no owned runs, do not call get_agent_runtime_diagnosti
 with a fabricated or all-zero backtestId. Inspect the saved code and the user's
 reported failure; repair a demonstrated code defect without claiming run proof.
 Only a returned real backtest identity can support run diagnostics.
+
+Identify a run with its returned timestamp and original ISO offset. That clock
+is separate from the simulated trading window. Render a local time only from
+an actual computed conversion; otherwise retain the source timestamp. Never
+apply another timezone offset to an already localized tool value.
+
 ## Saved-file evidence
 
 Read a known entrypoint such as `main.py` directly. Before reading optional
