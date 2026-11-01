@@ -156,6 +156,14 @@ quantity. Preserve the original entry-cancellation missing-read branch and
 its release behavior verbatim. Compare those specific branches in the saved
 readback before reporting the repair complete.
 
+Audit zero-fill terminal entries separately from hedge observations. An entry
+that finishes with no executions still needs its original terminal cleanup;
+an early return for zero cumulative quantity must not skip that cleanup.
+Limit quantity-accounting changes to the hedge's ownership and actual filled
+quantity. Preserve the original entry-cancellation missing-read branch and
+its release behavior verbatim. Compare those specific branches in the saved
+readback before reporting the repair complete.
+
 Add accounting initialization to the actual original `initialize` method;
 preserve its existing helper construction, caches, deadlines and scan state.
 A daily reset often repeats many assignments but omits one-time dependency
