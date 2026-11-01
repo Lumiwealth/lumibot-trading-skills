@@ -184,6 +184,17 @@ choices it owns. Its recovery policy must preserve returned working-order
 identities with the operation and reconcile partial, failed or cancel-pending
 orders and residual positions before another submission; rely on the runtime
 for observation and single-flight coordination.
+For an order-status watch, `value_json` lists the states that should trigger a
+decision, not merely the states being tracked. A watch matching only `new` and
+`partially_filled` does not wake when that order is canceled. Choose the relevant
+fill, cancellation, failure and partial-fill outcomes, using the exact returned
+parent and child identities needed to observe the operation. A normal successful
+transition need not run fresh research when the saved management policy suffices.
+Separate an established holding's review frequency from entry-order recovery:
+an unfilled canceled order may need an earlier bounded setup/repricing review,
+while a healthy monthly holding should remain quiet. Preserve the requested
+opportunity limit; neither a canceled order nor a new minute permits repeated
+unbounded entry attempts or replacement of a still-working order.
  It should check exact held contracts and current quotes before
 an order, reconcile the related pending order and residual position, then decide
 whether to hold, cancel/replace, exit or roll under the active Rules. A known
