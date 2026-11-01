@@ -58,6 +58,16 @@ available execution evidence again before submitting. Quantity-change conditions
 can detect residual exposure; choose them for meaningful management rather than
 requesting an inference merely to announce every expected fill.
 
+Every material management rule declared in the role policy needs an observation
+that can actually notice it while the team sleeps. Map each promised price,
+position-value, time or order outcome to a saved condition or an explicitly
+chosen sufficiently frequent review. A stock-price boundary alone cannot detect
+an options-value profit or loss threshold: use the signed basket observation
+when the policy depends on that value. Check units, signed quantities and the
+comparison direction with the actual position. Do not invent profit targets or
+loss thresholds for a policy that deliberately uses other conditions. The
+monitor reports facts; the trader decides what action those facts warrant.
+
 Use the monitor's single-flight decision context so two callbacks cannot launch
 duplicate team cycles. A successful cycle acknowledges only its original packet;
 new warnings arriving during that cycle remain pending. Exceptions retain the
