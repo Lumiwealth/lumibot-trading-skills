@@ -73,6 +73,11 @@ Skills point to reference files. Load a reference only when you need it: `skills
 
 ## 6. Mistakes that waste time
 
+Read the advertised tool schema or relevant skill reference to learn a capability.
+Do not send dummy experiments, backtests, deployments or orders as schema probes:
+placeholder dates and no-op variants can still mutate state or consume compute.
+Use real dates and variants when the user actually requests an experiment.
+
 - Writing the strategy from memory of an old LumiBot version. Load `lumibot-strategy-building` and `lumibot-api-reference` first.
 - Editing a stale copy. Re-read with `get_file` after every write.
 - Starting many backtests at once while debugging. Fix the first error from `get_backtest_logs`, then rerun.

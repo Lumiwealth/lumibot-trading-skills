@@ -3,7 +3,7 @@ name: strategy-building-core
 public-name: lumibot-strategy-building
 visibility: public
 title: "Building LumiBot Strategies on BotSpot"
-description: "Use as the main direct-edit strategy-building skill for new BotSpot strategies and substantial strategy rewrites. Choose the decision owner first, preserving explicit architecture choices and the ordinary hourly/daily AI-owned default. It owns the build, plan, validation and final handoff. A fast Python/hybrid recommendation explains avoided AI round-trip latency and credit use. Load supported LumiBot API references only as needed."
+description: "Use as the main direct-edit strategy-building skill for new BotSpot strategies and substantial strategy rewrites. Choose the decision owner first, preserving explicit architecture choices and the ordinary hourly/daily AI-owned default. It owns the build, plan, validation and final handoff. Explain inexpensive observations separately from decision/order ownership and describe the actual entry, holding and exit policy. Load supported LumiBot API references only as needed."
 ---
 > PUBLIC SKILL: served to anyone through the BotSpot MCP. Never add secrets, customer data or internal details.
 
@@ -27,7 +27,7 @@ indicators without saying AI. Load `lumibot-ai-agents`: exactly one agent may
 trade and one or more useful research/planning agents cannot trade. Run the
 roles needed for a decision, with fresh evidence for new setups and relevant
 dated research available for management. Quiet monitoring is not a decision
-cycle. Preserve an explicit Python/hybrid choice and use the
+cycle. Preserve explicit Python ownership or an AI-owned hybrid choice and use the
 cadence/latency decision rules below for faster signals. A no-auto-backtest
 preference changes validation permission, not this architecture choice.
 
@@ -40,6 +40,41 @@ fulfill the request. Load `lumibot-ai-agents` and its
 observations may wake the sole trader on AI-selected changes; Python must not
 become the signal, sizing or order owner. An explicitly scheduled daily/weekly
 strategy without intraday protection remains valid on that schedule.
+
+## Final build handoff
+
+Lead with the selected decision owner and its reason, even while validation is
+queued. For expressly Python-owned signals/orders, explain the avoided model
+round trip and inference use; a broker/feed latency disclaimer is a different
+issue. Broker and scheduling latency are separate from AI model round-trip latency.
+For an AI-owned hybrid, explain that the sole trader retains judgment
+and orders while Python observes cheaply. Preserve informed frequent-AI choices.
+
+A saved strategy also needs a usable policy explanation. Distill the final code and Rules into one short policy sentence before
+starting validation, then include it in your final reply. Describe what makes
+an entry eligible, the actual holding/exit/roll or management-review endpoint,
+and the options expiration horizon when applicable. For a dynamic AI policy,
+explain what the trading agent evaluates and what requires its next decision.
+An expiration range or "the agent manages risk" alone does not explain how a
+position ends. Use the saved policy, not an invented default or every threshold.
+
+Explain observation versus decision cadence separately. State actual validation status and material feed/broker limits. A queued run is not a
+result. Use the revision card rather than copied UUIDs. A narrow edit needs its
+changed behavior and validation, without repeating unrelated policy.
+
+## Complete the current customer workflow
+
+An edit in an established backtesting conversation is a test-change-test task.
+A completed earlier run or plan does not end that workflow. Save the requested
+code and coherent Rules, read both from the final revision, then call
+`start_backtest` on that revision using the established window, capital and data
+settings. Do this before the final answer; the customer need not ask to test again.
+Explicit save-only/do-not-backtest instructions and disabled automatic-backtest
+preferences take precedence. A standalone edit without a backtesting workflow
+finishes after save and readback unless testing was requested or an unfinished
+first-build/rescue task requires it. A no-trade result never authorizes changing
+the customer's signal merely to manufacture fills. A prior run validates only
+its own revision, never the newly edited one.
 
 ## Record the accepted requirements
 
@@ -111,6 +146,12 @@ risk and accepted exits before entry-only returns; a pending entry cannot bypass
 an exit. Cancel conflicting entries when policy requires cash, and confirm
 protective-order cancellation before submitting a competing full exit. Retain
 unfinished market exits rather than canceling/recreating them each iteration.
+A pending-order check must distinguish side, operation and residual quantity.
+An unrelated working order cannot erase an accepted exit. If a pending buy
+conflicts with a required sell, retain the sell intent, cancel/reconcile that
+buy, then close the confirmed residual position. Submission exceptions or a
+false acceptance result do not remove an operation from reconciliation: inspect
+the exact tracked orders and exposure before choosing a retry or replacement.
 A later market sell based on yesterday's low is not a stop fill at the threshold.
 Preserve broker/gap constraints and disclose actual data/fill-model limits.
 
@@ -202,6 +243,10 @@ For a new build, hasStrategy=false means no workspace exists. After the required
 research/plan, call create_strategy before get_file or list_files. Omit optional
 file selectors only once an attached or newly created workspace actually exists;
 an empty file inventory call cannot discover an uncreated workspace.
+A list_strategies result is discovery, not an attached workspace or a saved build.
+Do not validate an arbitrary search result as the requested new implementation.
+Establish the requested workspace, successful file writes and final readback
+before marking implementation complete or claiming that it was built.
 Wait for successful workspace creation before issuing any dependent file call;
 `create_strategy` and `list_files`/`get_file` cannot share a parallel tool batch.
 
@@ -221,23 +266,6 @@ alone does not complete that request. Missing live timing or deployment proof
 limits the verification claim; it does not by itself prevent editing the owned
 source with supported APIs and reading back the result. Preserve behavior,
 complete the requested edit, and state the actual remaining validation gap.
-
-## Final build handoff
-
-Use this order in the final handoff, even when validation is queued:
-
-1. State the selected decision owner AND why. For a fast Python/hybrid build:
-   "The signal/order path uses Python to avoid an AI model round trip and
-   per-call credit use." A statement that Python is deterministic or polling is
-   fast does not explain that choice.
-2. State the saved behavior verified in the latest readback, using its product
-   revision card rather than manually copied UUIDs.
-3. State the actual validation status and relevant feed/broker limitations.
-   Waiting for capacity is not a test result and does not replace the first line.
-
-Broker and scheduling latency are separate from AI model round-trip latency.
-The first handoff line must explain the decision owner, rather than substituting
-a general broker/feed timing disclaimer for the reason AI calls were avoided.
 
 A new trading date resets only session counters for settled work. It does not
 prove that yesterday's order, package, position or hedge obligation is terminal.
@@ -432,7 +460,12 @@ The full-exit helper deliberately delegates quantity and closing side to the
 supported API; never replace a fractional position with `int(position.quantity)`.
 
 Before claiming an unleveraged backtest is correct, inspect its actual minimum
-cash, submitted orders, fills and remaining positions. Positive ending cash and
+cash, submitted orders, fills and remaining positions. When reporting a sizing
+or allocation change, distinguish the requested target or cap from actual filled
+exposure and residual cash. Disclose material differences from rounding, fees,
+unfilled orders or execution prices; a configured percentage is not a measured
+holding. Keep the explanation concise and grounded in the executed run.
+Positive ending cash and
 a completed engine status do not excuse an earlier overdraft or abandoned exit.
 Repair and retest the same requested rules; never mask debt with `adjust_cash`,
 fake deposits or a changed signal. Inspect the returned artifact inventory and

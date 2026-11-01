@@ -129,6 +129,11 @@ output, load the `lumibot-indicators` skill.
 
 Base every order on current account state:
 
+This example implements a long BUY target: buy only its positive deficit from
+confirmed holdings. A target-sized order on top of existing holdings overshoots;
+skipping every held asset prevents legitimate top-ups. An explicitly opening-only
+allocation may instead leave existing holdings unchanged. Preserve that choice.
+
 ```python
 cash = self.get_cash()
 portfolio_value = self.get_portfolio_value()
@@ -136,9 +141,12 @@ price = self.get_last_price(asset)
 if price is None or price <= 0:
     return
 
-target_value = portfolio_value * weight          # weight from the user's rule
-target_value = min(target_value, cash * 0.99)    # never spend more than cash
-quantity = int(target_value // price)            # whole shares
+position = self.get_position(asset)
+held_quantity = float(position.quantity) if position else 0.0
+target_quantity = int((portfolio_value * weight) // price)
+buy_deficit = max(0.0, target_quantity - held_quantity)
+affordable_quantity = int((cash * 0.99) // price)
+quantity = int(min(buy_deficit, affordable_quantity))
 if quantity <= 0:
     self.log_message(f"Order too small for {asset.symbol}", color="yellow")
     return
@@ -148,6 +156,11 @@ self.submit_order(order)
 
 Rules:
 
+- **Targets and entries differ.** A held underweight stays eligible for a BUY
+  target. Pending-order reconciliation controls duplicates; a held-position skip
+  does not. A zero BUY deficit authorizes no sale. For a batch of equal-weight
+  buys with insufficient cash, scale all positive deficits by one common cash
+  factor before rounding instead of favoring whichever symbol runs first.
 - **Never exceed cash** unless the user explicitly wants margin and the broker
   allows it. Keep a small buffer for price movement between decision and fill.
 - **Account for open orders.** Cash does not drop until a buy fills. If you

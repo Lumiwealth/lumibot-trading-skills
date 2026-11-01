@@ -23,6 +23,13 @@ buying weekly or holding seven days. A minute observation interval does not mean
 minute inference. Healthy longer-held positions should not trigger a new entry
 discussion every day unless the mandate calls for that.
 
+After declining an opportunity, schedule the next eligible opportunity or a
+meaningful change in evidence. A new watch name or an already-due timer does not
+make the same unresolved uncertainty a new event. Request immediate research
+when it can resolve a new decision-relevant gap; otherwise reuse the dated work
+and explain what evidence or time will justify another cycle. Keep urgent new
+risk responsive rather than imposing an arbitrary daily model-call cap.
+
 ## Saved attention is actual structured state
 
 Where the installed runtime provides `self.agents.attention`, the trader uses
@@ -57,46 +64,33 @@ new warnings arriving during that cycle remain pending. Exceptions retain the
 packet for recovery. Persisted conditions and pending events use ordinary
 strategy state. Restarts replay attention, never a broker order.
 
-The monitor's `dispatch(callback)` runs that callback synchronously in a backtest
-and in one owned worker during live operation. Poll normally from the lifecycle;
-quiet calls start no worker or model. Join the owned worker from termination
-hooks. The callback must raise on an incomplete agent run so its packet remains
-pending. A worker error is surfaced to the lifecycle, not silently acknowledged
-or retried every minute. This does not supply automatic order recovery or a
-provider outage policy: those remain visible and must be handled deliberately.
-
 ### Lifecycle shape when this API is installed
 
 Create the research roles and sole trader normally, with their actual strategy
-policies and Rules. Tell the trader that a time watch called `research_review`
-requests another research cycle; other watches deliver management evidence with
-the dated prior answer. These names are one explicit application contract, not
-required names for every strategy. Bootstrap one initial review at an eligible
-time, then let the AI choose subsequent reviews and risk conditions. For example,
-the following lifecycle methods use the existing roles named `researcher` and
-`trader`; they contain no contract, quantity, price or order decision:
+policies and Rules. The shared `dispatch_team` coordinator handles role routing,
+dated answer storage and required-decision completion. Each AI-saved condition
+chooses a `review_scope`: `setup` for an eligible new setup, `research` when new
+research is needed, or `management` when relevant dated evidence is sufficient.
+Setup/research scopes run the declared researchers, then the decision agent;
+management runs only the decision agent using the unchanged dated answers.
+Arbitrary watch names have no routing meaning. Multiple simultaneous conditions
+produce one team cycle, not one run per condition.
+
+Choose one top-level dispatcher. Call `dispatch_team` directly from the
+lifecycle as shown below: it already acquires single-flight ownership and
+acknowledges the completed packet. Wrapping it in `dispatch(callback)` or a
+`decision()` context prevents the inner team from running. The outer callback
+could then acknowledge a packet for which no agent ran. The shared coordinator
+is the complete dispatch entry point, not the body of another dispatch callback.
+
+For the existing roles named `researcher` and `trader`:
 
 ```python
 def on_trading_iteration(self):
     self.agents.attention.poll()
-    self.agents.attention.dispatch(self._review_attention)
-
-def _review_attention(self, packet):
-    if any(event["watch_id"] in {"initial_review", "research_review"} for event in packet):
-        research = self.agents["researcher"].run(
-            task_prompt="Review the setup using current strategy time and dated evidence.",
-            context={"attention": packet, "prior_research": self.vars.get("research")})
-        self._require_completed(research)
-        self.vars.set("research", {"at": self.get_datetime().isoformat(), "answer": research.summary})
-    decision = self.agents["trader"].run(
-        task_prompt="Manage the attention evidence and save your next conditions or review.",
-        context={"attention": packet, "dated_research": self.vars.get("research")})
-    self._require_completed(decision)
-
-@staticmethod
-def _require_completed(result):
-    if not (result.payload or {}).get("execution_outcome", {}).get("decision_completed"):
-        raise RuntimeError("Incomplete decision; preserve attention for recovery")
+    self.agents.attention.dispatch_team(
+        decision_agent="trader", research_agents=["researcher"],
+        context={"symbol": self.parameters["symbol"]})
 
 def on_strategy_end(self):
     self.agents.attention.join()
@@ -105,50 +99,69 @@ def on_abrupt_closing(self):
     self.agents.attention.join()
 ```
 
-Set an observation `sleeptime` appropriate to the requirement, and actually
-register the initial eligible time watch from initialization or an appropriate
-lifecycle callback. Omitting that bootstrap leaves the example dormant.
-The Python method and the model tool have distinct signatures. The model's
-`attention_watch` tool supplies its role owner automatically. Direct Python
-registration requires that owner plus the flat metric/comparison/value fields;
-it does not accept a `condition` dictionary. For example, at the first eligible
-review callback, after creating the roles:
+Use all relevant research role names for a larger team. `context` is passed
+unchanged as `team_context`; `dated_research` maps each role to its actual last
+answer and reception time. The component chooses no trading action and never
+interprets an answer as a signal, quantity or order. It supplies the same scope
+contract to the decision agent on every run, so the strategy does not need to
+copy a watch-name protocol into several prompts and Python branches.
+
+Register one initial eligible setup after creating the roles, and retain the
+successful registration across restarts. For example, inside initialization or
+an appropriate eligible lifecycle callback:
 
 ```python
-self.agents.attention.watch(
-    owner="lifecycle", watch_id="initial_review", operation_id="initial_setup",
-    metric="time", comparison="gte", value=self.get_datetime().isoformat(),
-    reason="First eligible setup review")
+if not self.vars.get("attention_started", False):
+    self.agents.attention.watch(
+        owner="lifecycle", watch_id="initial-review", operation_id="initial-setup",
+        metric="time", comparison="gte", value=self.get_datetime().isoformat(),
+        reason="First eligible setup opportunity", review_scope="setup")
+    self.vars.set("attention_started", True)
 ```
 
-Persist that successful registration so a restart restores it rather than
-creating repeated initial decisions. Registration is not a completed AI decision.
-`initialize()` runs again after a restart. Preserve existing `self.vars` research,
-watch-registration flags and pending operation identity with defaults; assigning
-`None` or `False` over them at every initialization repeats setup and loses context.
-Use `self.vars.get(key, default)` when establishing persistent defaults.
+Set an observation `sleeptime` appropriate to the mandate. Omitting the initial
+registration leaves the team dormant. Direct Python `watch` takes flat fields,
+an explicit owner and `value`; it does not accept a `condition` dictionary. The
+model's `attention_watch` supplies its role owner and accepts `value_json`.
+Registration is not completed research, a completed decision or an order.
 
-The trader must use the returned attention tools to register subsequent watches;
-an instruction to "watch risk" without a saved condition leaves it unmonitored.
-Pass the coordinator's refresh contract to the trader, not just to Python. For
-the example above, its effective prompt must explain that a time watch named
-`research_review` runs research before the next trading decision. After a
-declined setup or confirmed closure, the trader schedules the next eligible
-opportunity through that route. While holding, it chooses needed management
-events without creating a daily entry discussion. A coordinator branch that no
-agent knows how to request is a dormant branch, not a working refresh policy.
+The trader chooses subsequent conditions with their appropriate scopes. After
+a declined setup or confirmed closure, it can save the next eligible `setup`
+review. During a healthy holding, use meaningful `management` conditions rather
+than a daily entry discussion. If a decision needs new research, defer that
+evidence-dependent action and register a `research` review. The current run
+completes; the subsequent coordinated cycle supplies fresh answers. Keep this
+separate from an urgent protective decision that can use still-sufficient known
+evidence. A scheduled review is never proof that the future work already ran.
 
-At saved-code readback, trace the whole decision loop: initial review, a declined
-entry, a later eligible setup, management while holding, partial or failed orders,
-and confirmed closure. Check that each state can reach the appropriate next
-decision and that its actual role prompt or tool contract explains how. This is
-a semantic review, not a requirement for these example names or a Python state
-machine. Keep runtime-owned deduplication and grouping in the runtime; do not
-copy those algorithms into the strategy or demand the same wording in every
-prompt.
-Verify quiet polls, the initial cycle, a triggered management cycle and its next
-attention plan with the installed API. Confirm hosted runtime compatibility
-separately; do not claim this excerpt proves a Manager run.
+`dispatch_team` uses the existing single-flight dispatcher. A required research
+or decision run that returns incomplete raises and leaves its packet pending.
+Only completed research answers are stored as usable. Restarts retain those
+answers, watches and undelivered warnings without repeating the initial review.
+Preserve existing `self.vars` flags and state during initialization.
+
+For different coordination, a custom lifecycle may instead call
+`dispatch(callback)` with a callback that invokes the actual agent handles and
+checks their completion. Do not call another dispatcher from that callback.
+It runs synchronously in a backtest and in one owned worker during live
+operation. Poll normally, join at termination, and raise on incomplete required
+runs so attention remains pending. Worker failures surface to the lifecycle;
+the component does not silently retry them or supply an order-recovery policy.
+For custom clock windows, persist the attempted window before calling either
+role and store completion separately. An incomplete answer must stay visible;
+it must not turn every remaining minute of the same window into another team
+run. Use an explicit bounded recovery policy or a distinct scheduled/new-evidence
+review, preserving observations for held exposure and working orders. An attempt
+marker is not permission to acknowledge undelivered attention or claim success.
+Verify the custom callback's actual request/routing contract,
+answer handoff and incomplete-result handling; do not assume a watch name has
+built-in meaning. Keep one monitor state owner and do not reproduce its
+persistence, deduplication or single-flight algorithms in strategy code.
+
+At saved-code readback, trace initial review, a declined entry, a later eligible
+setup, management while holding, partial or failed orders and confirmed closure.
+Verify quiet polls and triggered scopes with the installed API. Confirm hosted
+runtime compatibility separately; this excerpt proves no Manager run.
 
 ## Research and management
 
@@ -159,9 +172,9 @@ applies and requests a refresh when needed. Keep synchronous agent invocations
 in the lifecycle coordinator, outside an active ADK agent's event loop. A nested
 `AgentHandle.run()` inside a synchronous tool currently fails with an event-loop
 error; a static architecture description does not prove that wiring works.
-An AI-selected watch identity can explicitly request a research review: the
-coordinator invokes the researcher and passes its answer unchanged to the
-trader. Other position-management events can use the dated saved answer.
+An AI-selected research review scope asks the coordinator to refresh the
+configured research roles and pass their actual answers unchanged to the
+decision agent. Management scopes can use their dated saved answers.
 This routing uses the AI's explicit scheduling contract, not parsed market prose
 or Python judgment about a trade. Do not substitute invented cached research or discard a research
 result and pass a placeholder instead.

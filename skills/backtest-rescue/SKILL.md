@@ -232,6 +232,25 @@ to change the strategy or start another backtest, load `backtest-analysis`
 instead. Do not load this skill merely because an existing run has incomplete
 data or skipped iterations.
 
+A passing narrow Rules review does not override a proven execution defect in
+an unfinished authorized build. Inspect the actual account mode and accepted
+funding contract: do not treat negative cash caused by execution-price movement
+or fees as harmless performance commentary when borrowing was never authorized.
+Preserve signals and the requested exposure, fix execution-aware affordability
+and outstanding reservations, then verify the newest saved revision. A bounded
+limit and cash-aware quantity can enforce an accepted cash ceiling; an earlier
+quote alone cannot bound an unrestricted market fill. Preserve explicit market,
+margin and fractional-unit policies, explaining a real incompatible requirement
+instead of silently changing it.
+
+For staged purchases sharing one accepted funding pool, freeze that pool for
+its actual position/decision cycle and account for confirmed spend and pending
+reservations. A request for half followed by the other half uses two portions
+of the same pool, not half of the already-reduced cash balance. If the customer
+explicitly chooses a percentage of then-current cash, retain that distinct
+policy. Stage completion follows confirmed executions, including partial and
+terminal-without-fill outcomes; submission alone is not completion.
+
 A terminal validation wake inside an authorized creation/edit plan must also
 repair a proven requirement violation when the engine completed and trades
 filled. The defect need not be catastrophic: unintended borrowing in a cash-only

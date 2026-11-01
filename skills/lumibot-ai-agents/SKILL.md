@@ -25,6 +25,19 @@ AI AGENTS COMPONENT
 
 ## Default architecture and inexpensive attention
 
+When the user explicitly chooses Python-owned decisions or orders with a
+non-trading AI reviewer, load `references/python-owned-review-and-allocation.md`
+before writing or reviewing that implementation. It owns the complete review
+coverage, BUY-target sizing, exit independence and final design handoff.
+
+
+For every new AI role, including a non-trading reviewer in a Python-owned
+strategy, honor the user's explicit model choice; otherwise copy the exact
+`model=` argument displayed on the CURRENT AI MODELS `(default)` row. A cheaper
+`bot#1` recommendation is not the selected default. Share a constant for roles
+using the same choice, preserve explicit per-role choices, and keep existing
+models on edits unless the user requests a change.
+
 For an AI-owned trading strategy, use exactly one trading/risk agent and one or
 more useful non-trading researchers. Use more researchers when the job benefits
 from distinct expertise or dissent; do not force exactly two total agents.
@@ -33,9 +46,24 @@ through its tools. An AI label or a disabled trader beside Python sizing and
 submission does not satisfy an AI-owned request. Honor an explicit Python-owned
 strategy, including non-trading AI research, without forcing an execution agent.
 
+Before validation, read the saved trader's actual prompt for its capital-exposure
+policy and its losing-position exit policy. "Manage risk" or "risk is
+unacceptable" alone supplies neither. For an unspecified mandate, choose and
+disclose sensible concrete limits in that prompt and active Rules; the trader
+still selects quantities and executes. Preserve the user's explicit full
+allocation, rejected caps or other informed risk choice instead of imposing
+default limits on it. A single-asset mandate permits cash and never requires
+adding other assets.
+
 Separate entry opportunities, option expiration, expected holding period and
 management reviews. A weekly research schedule does not mean a weekly new trade
 or automatic weekly roll. A quiet minute is an observation, not a decision cycle.
+Preserve whether the user wants ongoing exposure or purchases only after a
+tactical signal. For ongoing exposure, research informs construction and risk;
+do not silently add a strong-trend prerequisite. For an opportunistic mandate,
+preserve its actual signal. In either case, the trader obtains its own contract,
+quote, Greek and package-price evidence; missing execution fields in a research
+answer are work for the trader, not an unmet upstream prerequisite.
 Use cheap read-only observations between AI decisions, with saved AI-selected
 attention conditions, episode deduplication and exact operation/order identity.
 New entries use useful current research; an urgent management decision may use
@@ -56,78 +84,64 @@ completed. `AgentHandle.run()` can return an incomplete result without raising.
 Preserve the warning and surface that failure instead of acknowledging it as a
 hold or installing a false completed-setup state. Verify the current result API
 and the observation/dispatch example; do not infer completion from a returned object.
+Keep the attempted opportunity separate from completed work. A clock-window
+loop records its attempt before invoking the team, even if the answer later
+fails or is incomplete. Do not leave its window key unset and retry the same
+research/trading cycle every minute. Surface the incomplete result and retain
+its warning; recovery uses an explicit bounded retry policy, a scheduled review
+or materially new evidence, while held-position observations remain active.
 Check the installed runtime API and the actual Manager runtime before using a
 new capability. Source code or a configured model is not proof that a hosted
 backtest has that capability or Login with ChatGPT funding.
 
-Close the decision loop in the saved implementation. Give the trader the actual
-coordinator contract for requesting research and scheduling the next eligible
-opportunity after a declined setup or confirmed closure. A Python refresh branch
-without a matching instruction/tool contract is unreachable by the agent's
-policy. Read back that connection along with management, residual-order recovery
-and decision-completion handling before launching validation. Use the generic
-monitor's existing deduplication and grouping rather than reimplementing them.
+Close the decision loop with the installed shared team coordinator where
+available. Call `dispatch_team` directly from the lifecycle; it already owns
+single-flight dispatch and packet acknowledgement. Never wrap it in another
+`attention.dispatch(...)` callback or `attention.decision()` context: that inner
+dispatch cannot acquire ownership, and the outer callback may discard an event
+without running either role. `dispatch_team` runs the declared research roles for `setup` and
+`research` review scopes, then the decision agent; `management` reuses their
+actual dated answers. The AI chooses each watch's scope. Watch names have no
+routing meaning, and strategy code need not duplicate role invocation or
+answer storage methods. An evidence-dependent action waits for the subsequent research
+cycle; registering that review is not completed research. A custom dispatcher is
+also valid when its actual contract is reachable and preserves completion,
+answers and risk coverage. Verify initial and later opportunities, management,
+residual-order recovery and incomplete decisions before launching validation.
+Use the existing monitor's persistence, deduplication and grouping.
 
-In the final build handoff, briefly describe the actual chosen setup opportunity,
-expiration/intended holding or roll horizon, risk/exit policy and cheap observation
-interval. One compact description of these material choices is enough; a DTE
-range alone does not explain when the position will be reviewed or exited.
-Keep the actual queued/completed validation result separate from that policy.
+Put recovery in the effective trading instructions, not only this author's
+checklist: retain the returned order identity with its position/operation; check
+that exact order and residual exposure after partial fills, failure or pending
+cancellation before submitting again. "Inspect open orders before trading" is
+an evidence request, not this recovery policy. The trader owns recovery; Python
+does not choose a replacement quantity or submit an exit.
+
+Before the first backtest, establish the actual four clocks in the saved role
+policy and Rules. The AI may choose expiry and holding duration dynamically, but
+explain how it chooses them and what prompts review, exit or roll. An unrestricted
+"choose management" instruction leaves that policy unspecified. A fixed DTE is
+not required when the mandate calls for discretion.
+
+In the first handoff, including a queued-backtest reply, use four compact lines
+from the saved source: **Entry**, **Holding/review**, **Expiration** (for options),
+and **Test**. Fill each with the actual saved policy or returned validation state. Say which signal or market, pricing
+and risk evidence makes an entry eligible; a review frequency or "the AI decides"
+does not explain that choice. State what ends the holding or requires its next
+management review, and explain option expiration separately. Include a saved
+time-based close/roll rule when one exists: describing the expiration range alone
+omits it. Distinguish inexpensive observation from decision frequency. Then state the
+actual validation result and material gaps. Do not claim a completed backtest
+while it is queued, or bury the trading policy in a list of setup caveats.
 Before the final handoff, compare that one compact policy description with the
 saved source: explain when it can enter and what makes it hold, exit or roll.
 Prioritize those actual choices over a long inventory of tool/setup caveats;
 keep material missing evidence and the actual validation state visible.
 
-## Explicit Python order ownership
+## Preserve the complete policy across roles
 
-When the user explicitly chooses Python signals/orders and non-trading AI,
-implement that choice. In the first visible progress acknowledgment, explain this tradeoff once:
- BotSpot usually lets one trading agent place orders because hand-written
-order code can miss a rebalance or an instrument-identity edge case; this build
-keeps orders in Python as requested. Every AI role has allow_trading=False.
-Complete BUY targets against confirmed existing positions as below, rather than
-skipping every held symbol. An already-held skip is not duplicate-order control;
-reconcile actual pending orders separately.
-At the saved-code readback, follow one qualifying held underweight through the
-actual sizing and submission path. A positions-membership continue still skips
-the required top-up even when a separate helper computes target weights.
 For multi-leg mandates, compare the researcher prompt, trader prompt and saved
 active Rules: each must preserve the requested atomic entry and atomic exit.
-
-## Python-owned equal-weight BUY targets
-
-For a user-selected Python BUY-target design, evaluate the user's signal and AI
-PASS/VETO policy first. Include EVERY qualifying symbol in the target set,
-including held underweights. Use confirmed account value, positions and spendable
-cash; an unfilled sell is not available cash. This pure sizing step creates no
-signal, order or additional sell rule. Apply the common factor before any
-required broker quantity rounding, then reconcile reservations before submission.
-
-```python
-import math
-
-def equal_weight_buy_quantities(prices, held_quantities, eligible, account_value, available_cash):
-    eligible = list(dict.fromkeys(eligible))
-    if not eligible:
-        return {}
-    if not math.isfinite(account_value) or account_value < 0 or not math.isfinite(available_cash):
-        raise ValueError('Use verified finite account values')
-    if any(not math.isfinite(prices[symbol]) or prices[symbol] <= 0 for symbol in eligible):
-        raise ValueError('Each eligible asset needs its actual positive price')
-    target_value = account_value / len(eligible)
-    deficits = {symbol: max(0.0, target_value / prices[symbol]
-                           - held_quantities.get(symbol, 0.0))
-                for symbol in eligible}
-    required_cash = sum(deficits[symbol] * prices[symbol] for symbol in eligible)
-    common_factor = min(1.0, max(0.0, available_cash) / required_cash) if required_cash else 0.0
-    return {symbol: deficit * common_factor for symbol, deficit in deficits.items()}
-```
-
-An overweight gets a zero BUY deficit, not an unauthorized sell. Retain the
-user's VETO exit and other actual sell rules independently. AI-owned designs
-leave this decision with their sole trader rather than adding Python orders.
-
-## Preserve the complete policy across roles
 
 For a requested atomic multi-leg entry and exit, the shared effective policy
 must explicitly say both "enter the complete package atomically" and "close
@@ -163,15 +177,6 @@ finite research packet bound. Keep the ordinary rules_path binding; this shared
 policy is not a duplicate Rules ledger. At readback, compare both actual saved
 prompts and Rules against every requested constraint.
 
-For an equal-weight BUY target, qualifying stocks already held still belong in
-the eligible set. Calculate target quantity minus confirmed held quantity and
-buy its positive deficit; an unconditional already-held skip loses legitimate
-underweight purchases. Apply one common confirmed-cash scaling factor to all
-proposed buys. A BUY-target policy does not authorize selling overweights;
-perform reductions only if the user asked for rebalancing or a stated veto exit.
-This allocation math belongs in Python only when the user explicitly selected
-Python-owned orders; AI-owned designs leave decisions with the sole trader.
-
 ## AI-owned new automation
 
 Define the handoff in the saved upstream agent prompt before creating the team:
@@ -201,6 +206,11 @@ that file back. Do not treat the intended design as proof of the saved design.
   long/debit iron condor sells the outer put, buys the inner put, buys the inner
   call and sells the outer call. Long outer wings with short inner legs describe
   the inverse credit package, even when its label says "long".
+- Compare every saved agent's actual model ID with the user's explicit choice,
+  or otherwise the CURRENT AI MODELS row marked `(default)`. Share a model
+  constant for roles with the same choice; preserve explicit per-role choices.
+  A `bot#1` recommendation or a cheaper
+  example is not the default choice. Correct mismatched saved IDs before testing.
 - Check the actual call sites, not only sleeptime or role prose. When the request
   names decision windows, trace one iteration outside those windows: neither
   researcher nor trader should run there. Put the clock schedule around the
@@ -255,15 +265,19 @@ agents or ten. The running reference examples are LumiBot's
 3. **The agents talk to each other; Python only passes the messages.** Python
    sets `self.sleeptime`, creates the agents in `initialize()`, and in
    `on_trading_iteration()` runs them in order, passing earlier agents'
-   `result.summary` to later agents through `context`. Python does not fetch or
-   parse data, compute indicators or signals, pick symbols, size positions,
+   `result.summary` to later agents through `context`. Python does not independently
+   research or filter decision evidence, compute signals, pick symbols, size positions,
    parse agent text into trades, or create and submit orders. A research agent
    returns a bounded setup packet: thesis, exact candidates, observed prices,
    risks, what would change its mind, and missing evidence. The one allowed
    exception is a cheap Python watcher for setups that need fast reaction
    (for example an iron condor stop): it only checks a condition on a short
    `sleeptime` and wakes the trading agent when the condition appears; it never
-   sizes or places orders itself (see AI decision cadence and usage).
+   sizes or places orders itself (see AI decision cadence and usage). Display-only
+   chart observations are also valid support code: fetching a reference price or
+   candle solely for a plot does not make Python the decision owner. Trace its
+   actual consumers; it must not select or filter the AI's evidence, signal,
+   quantity or order. Keep display work small and reuse existing charting helpers.
 4. **The trading agent places the trades, not Python.** Code misses edge cases: a rebalance
    that sells the wrong amount, or a symbol with a dot such as `BRK.B` breaking
    the code. A trading agent reasons around them. LumiBot's runtime trading
@@ -307,13 +321,9 @@ agents or ten. The running reference examples are LumiBot's
 9. **When the user wants code to place the trades, follow the user.**
    Build exactly that, without asking permission first: every agent
    `allow_trading=False`, Python owns the signals and orders by the user's
-   rules. When the final reply describes the saved design, it must include one
-   plain design-tradeoff sentence: BotSpot's usual design lets one trading
-   agent place the orders because order code tends to miss edge cases (name
-   one: a rebalance that goes wrong, or a symbol like `BRK.B` breaking the
-   code), and this build keeps
-   orders in Python because the user chose that. It is part of the design
-   description, not an optional offer. Do not refuse, nag or repeat it.
+   rules. Explain the design tradeoff once in the final handoff as described
+   above; do not repeat the recommendation in progress updates.
+   Do not refuse or nag.
 10. **A plain "I want an AI that trades for me" is a build request.** Beginners
     often name no assets or limits. Do not quiz them: build a small team on a
     liquid, diversified ETF universe such as SPY, QQQ, IWM, TLT and GLD with
@@ -382,7 +392,7 @@ block the build, or silently substitute Python.
 A strategy may use a faster deterministic Python cadence for broker/order-state
 reconciliation or a narrow time-window trigger without making the intelligent
 decision cadence equally fast. This is the normal hybrid design: track the last
-completed AI decision and invoke the team only in the intended decision
+attempted AI opportunity and its separate completion status, and invoke the team only in the intended decision
 windows. Classify the design from the intelligent-decision and reaction-time
 requirements, not `sleeptime` alone. If sub-minute or continuous signal
 reaction is essential, recommend deterministic Python or hybrid while
@@ -411,6 +421,10 @@ an explicitly open universe, reduce the requested agents, or relax a portfolio
 requirement. Before saving, compare each mandatory user requirement with its
 actual instructions and configuration; preserve it without unrequested exceptions.
 Do not invent risk caps, forced stops or asset bans the user rejected.
+A long-only example is not a restriction on an unrestricted stock mandate.
+Preserve permitted trade directions, including opening shorts and covering them,
+subject to actual broker/account capability; do not copy a buy/add-long and
+sell/close-only instruction into a broader discretionary policy.
 
 ## Critical New-Build Contract
 
@@ -595,6 +609,11 @@ priority over deterministic strategy-building guidance:
   structure, and verifies the returned broker outcome after submission before
   claiming execution. Refer to runtime skills for the exact workflow;
   an upstream researcher's instructions do not assign the trader's obligations.
+  Make this apply to every order: entries, mandatory or discretionary exits,
+  rolls and recovery. A current-evidence instruction attached only to selecting
+  new contracts does not define the exit checks. A scheduled risk-reducing exit
+  still needs fresh held identities, account/order state and execution evidence;
+  reuse evidence that remains current rather than requesting duplicate reads.
 - Preserve the user's package orientation and opening cash flow in both the
   saved role policy and active Rules: net debit and net credit are different
   requested structures. An example's default orientation never overrides the

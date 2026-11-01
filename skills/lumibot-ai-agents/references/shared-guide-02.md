@@ -86,7 +86,7 @@ are required, inspect the saved code first with `get_file` and identify the
 requested credential mode. Ordinary BotSpot-managed inference does not require
 a saved personal provider key, even when the selected model is Gemini, OpenAI,
 Anthropic, or xAI. Explicit BYOK/local execution does require the matching
-provider key even if the code does not directly read `os.environ`. Availability
+provider key in the local process environment even if the code does not directly read `os.environ` or configure a BYOK selector. BotSpot Saved Variables are not required for a local run. The explicitly requested execution location takes precedence over the hosted default. Availability
 tools such as `saved_env_vars(action="list")` show what the user has saved; they do not
 prove either credential mode. Do not final-answer with "I can inspect the code
 next" when the current request is already asking you to check the revision.

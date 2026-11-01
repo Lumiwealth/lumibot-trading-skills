@@ -206,12 +206,17 @@ class RetainedOperations:
     Completing an entry releases its active slot, not its fill history. Callback
     observers use this registry even when another entry is active. It performs
     no historical polling, submission, compensation, or automatic completion.
+    Read an existing entry with get(); only for_entry() creates an operation.
     """
 
     def __init__(self) -> None:
         self.operations: dict[str, OperationFills] = {}
         self.completion_claims: set[str] = set()
         self.reconciliation_required: dict[str, Decimal] = {}
+
+    def get(self, entry_id: str) -> OperationFills | None:
+        """Read retained history without creating an entry or changing its target."""
+        return self.operations.get(entry_id)
 
     def for_entry(self, entry_id: str, target: Any) -> OperationFills:
         # A duplicate original-entry callback cannot reset its immutable target.

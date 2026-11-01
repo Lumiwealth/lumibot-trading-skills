@@ -35,6 +35,22 @@ class CatalogParity(unittest.TestCase):
         actual = {p for p in (ROOT / "skills").rglob("*") if p.is_file()}
         self.assertEqual(actual, advertised)
 
+    def test_operation_lookup_has_one_definition_and_keeps_entry_identity(self):
+        import ast
+        import runpy
+        path=ROOT/'skills/strategy-building-core/references/order-quantity-example.py'
+        owner=next(n for n in ast.parse(path.read_text()).body if isinstance(n,ast.ClassDef) and n.name=='RetainedOperations')
+        self.assertEqual(sum(isinstance(n,ast.FunctionDef)and n.name=='get'for n in owner.body),1)
+        registry=runpy.run_path(str(path))['RetainedOperations']()
+        self.assertIsNone(registry.get('absent'))
+        self.assertEqual(registry.operations,{})
+        first=registry.for_entry('first-neutral-entry',100)
+        second=registry.for_entry('second-neutral-entry',50)
+        self.assertIs(registry.get('first-neutral-entry'),first)
+        self.assertIs(registry.get('second-neutral-entry'),second)
+        self.assertIsNone(registry.get('absent'))
+        self.assertEqual(len(registry.operations),2)
+
     def test_known_secret_shapes_are_not_in_the_published_skill_content(self):
         # The private publisher runs the full policy, including its private denylist.
         patterns = [r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b", r"\bsk-[A-Za-z0-9_-]{16,}",
