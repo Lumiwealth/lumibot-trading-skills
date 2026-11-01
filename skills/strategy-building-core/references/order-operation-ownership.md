@@ -31,10 +31,14 @@ and all unrelated trading policy.
 
 For an authorized repair, inspect the existing owner, apply the coherent change
 with the normal file tools, then read back the saved file and file set. If no
-mutation has succeeded and no concrete unrecovered tool error blocks it, keep
+mutation has succeeded and the current file remains accessible and writable, keep
 implementing; a diagnosis is not the requested saved repair. Save-only excludes
 starting backtests, deployments or trades, and permits the necessary file edits.
 Preserve the owner's actual lookup and callback APIs at every call site.
+An ambiguous or missing patch anchor is a recoverable editing error. After a
+repeated anchor failure, read the current file and use `replace_file` with that
+fresh edit handle and the complete corrected content; preserve unrelated code.
+Do not end with the failed patch as the reason the authorized edit is unfinished.
 
 Preserve the original trading policy: symbols, signals, prices, quantities,
 entry eligibility, cancellation/deadline/cooldown rules and session behavior.
