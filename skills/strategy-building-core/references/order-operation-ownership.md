@@ -29,10 +29,12 @@ these connected paths. Use their object-identity guard, not a scalar-ID
 inequality substituted during adaptation. Preserve queue-leg quantity ownership
 and all unrelated trading policy.
 
-Finish the saved repair through its final readback. Save-only forbids starting
-backtests, deployments or trades; it does not limit the number of necessary
-file edits. A known repairable race, orphaned preparation flag or disconnected
-helper is unfinished work, not a final verification disclaimer.
+For an authorized repair, inspect the existing owner, apply the coherent change
+with the normal file tools, then read back the saved file and file set. If no
+mutation has succeeded and no concrete unrecovered tool error blocks it, keep
+implementing; a diagnosis is not the requested saved repair. Save-only excludes
+starting backtests, deployments or trades, and permits the necessary file edits.
+Preserve the owner's actual lookup and callback APIs at every call site.
 
 Preserve the original trading policy: symbols, signals, prices, quantities,
 entry eligibility, cancellation/deadline/cooldown rules and session behavior.
