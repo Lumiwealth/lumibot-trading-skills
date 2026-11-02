@@ -282,6 +282,13 @@ agents or ten. The running reference examples are LumiBot's
    "safe" or gave no limits, choose sensible limits and say so in the reply.
    When the user rejected caps ("unrestricted"), follow that mandate
    instead (see Explicit Design Mandate Compliance).
+   Assign the requested instruments' distinct risk review to the trader as
+   well as research: generic concentration or cash limits do not describe
+   instrument exposure. For leveraged/inverse ETFs, the saved trader policy
+   must assess embedded leverage, daily reset/compounding and drawdown risk
+   before selecting or retaining them. Preserve their eligibility and the
+   user's mandate; do not replace that assessment with an unrequested asset
+   ban, numeric cap or Python decision gate.
 6. **Diversification is guidance, never a hard rule.** Many customers want a
    single-asset bot, such as a Bitcoin bot that is either in BTC or in cash.
    That is fine: do not add other assets, require several holdings, or
@@ -399,9 +406,12 @@ Encode unrestricted or broad mandates exactly when the user states them (for exa
 agent `system_prompt` and `rules.json`. Do not argue, debate, lecture, or override
 those constraints with safer/more conservative defaults. Preserve mandatory minima,
 maxima, eligible assets, agent roles, cadence and model/reasoning in both Rules and
-executable agent prompts. "At least N funded holdings after construction" remains
-that minimum; do not turn it into "prefer N", "when evidence permits", or "if the
-account is large enough". Genuine lack of buying power, available instruments or
+executable agent prompts. "At least N funded holdings after construction" is an
+ongoing requirement for every later trading decision, including reductions, exits
+and rebalances; it is not merely a condition for calling construction complete.
+State that continuing obligation in the trading agent's own prompt and Rules. Do
+not turn it into "prefer N", "when evidence permits", or "if the account is large
+enough". Genuine lack of buying power, available instruments or
 authorized orders must be reported as an unmet requirement, never hidden by
 weakening the mandate or manufacturing filler trades. Reasonable discretionary
 selection happens within the requested constraints.
@@ -532,11 +542,12 @@ than legacy `text`/`enabled` objects. Each rule needs `id`, `status: "active"`,
 `raw_quote`, `interpretation`, `source`, `created_by`, `last_edited_by`, and
 `edit_history`. Read `strategy-rules` before creating that file and validate the
 whole JSON object before the first file call.
-After `create_strategy`, call `list_files`. If its returned inventory contains
-`rules.json`, read that exact file and use `replace_file` with the fresh edit
-handle. If the inventory does not contain `rules.json` and the user requested
-Rules, use `create_file`. Never call `create_file` for a path that `list_files`
-or `get_file` returned.
+Immediately before each Rules write, call `list_files` on the latest saved
+revision, including when a `main.py` edit followed an earlier Rules save.
+Choose the write operation from that current inventory: for an existing
+`rules.json`, read it and use `replace_file` with its fresh edit handle; only
+an absent path may use `create_file`. Do not reuse the initial empty-workspace
+listing to choose a later write operation.
 Each file write creates a revision of the whole workspace and preserves the
 other files. After a successful `create_file`, that path exists in subsequent
 revisions unless it was explicitly deleted. Editing `main.py` does not remove

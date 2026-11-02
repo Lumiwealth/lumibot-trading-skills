@@ -161,7 +161,8 @@ class AllocationReconciler:
             if ticket != self._accepted_ticket:
                 return "target_changed"
             replacing = self.book["replacement"] and active
-            cancel = []
+            cancel = [order for order in active
+                      if str(order.identifier) not in self.book["cancel_requested"]]
             if replacing:
                 for order in active:
                     key = str(order.identifier)
@@ -173,6 +174,13 @@ class AllocationReconciler:
             try:
                 for order in cancel:
                     self.strategy.cancel_order(order)
+                    # A raised request has not confirmed acceptance. Retain its
+                    # owned active order for a fresh exact-order read and retry.
+                    # Successful requests wait for terminal broker state once.
+                    with self.lock:
+                        key = str(order.identifier)
+                        if key not in self.book["cancel_requested"]:
+                            self.book["cancel_requested"].append(key)
             finally:
                 with self.lock:
                     self.publishing = False

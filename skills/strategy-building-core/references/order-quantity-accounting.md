@@ -109,7 +109,14 @@ When accounting spans initialization, submission, polling and callbacks, use
 `replace_file` for the complete affected existing module. Preserve its original
 unrelated methods, imports and runner verbatim. This keeps one coherent repair
 from depending on several approximate oldText fragments in an atomic patch.
-Then read back the complete saved module and correct any disconnected caller.
+Then read back the complete saved module and compare its `initialize` body
+against the original file, statement by statement. Keep every original helper
+construction and configuration assignment unless that exact statement belongs
+to the accounting being replaced. Adding the retained ledger or lock must not
+replace the first existing initialization statement. Trace each `self.<helper>`
+used by the unchanged entry/quote path back to its preserved construction;
+imports alone do not instantiate a helper. Correct any disconnected caller or
+removed construction before handing off.
 Audit each new persistent owner field by its exact saved name before handing off.
 Trace its initialization, submission/callback reads and writes, reset and
 completion paths. Initializing one attempt index and then reading a differently
