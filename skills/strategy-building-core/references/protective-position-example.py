@@ -2,6 +2,29 @@
 
 """Standing stop and accepted-exit reconciliation for one owned long position.
 
+For a long strategy without a requested protective stop, this same owner can
+retain full-exit intent with stop_for=lambda position: None. Do not invent a
+stop. Reconcile before reading new signals or taking entry-only early returns;
+checking pending orders only after a held-position branch leaves duplicate exits
+possible. The signal and entry hooks below remain the user's own policy.
+
+Minimal full-exit-only wiring:
+  class PositionLoop:
+      def on_trading_iteration(self):
+          self.position_owner.reconcile()
+          if self.exit_signal():
+              self.position_owner.request_exit()
+              return
+          if self.position_owner.exit_requested:
+              return
+          self.consider_entry()
+End full-exit-only wiring.
+
+Create position_owner once in initialize with this complete component and
+caller-owned state. Preserve the documented fill/cancel callback reconciliation
+below. An existing equivalent owner needs no replacement. This is one supported
+long-position policy, not a ban on simultaneous orders or another valid policy.
+
 Adapt this component into the strategy, preserving its signals and sizing. The
 caller owns the stop rule: stop_for(position) may use aggregate fill basis or a
 signal's price level. Construct once with a dictionary kept in self.vars. Call

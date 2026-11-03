@@ -105,6 +105,12 @@ saved result. The need to coordinate several methods is not itself a capability
 blocker or a reason to stop after describing the work. Report a concrete
 unavailable dependency when one actually prevents the requested change.
 
+For a simple long-position full exit, load `references/protective-position-example.py`
+when an equivalent lifecycle is absent. Its minimal full-exit loop reconciles
+accepted orders before position/signal branches, even without a stop-loss policy.
+Connect the complete owner with no stop policy rather than inventing a stop or
+leaving an unused helper. Preserve another valid order/account policy.
+
 For Python strategies, preserve each requirement's timing: daily entries do not
 turn a protective stop into a daily close check. Before implementing protection,
 load `references/protective-position-example.py`. A requested loss stop defaults

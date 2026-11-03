@@ -7,6 +7,13 @@ description: Use for overfills, partial or canceled hedge replacements, repeated
 
 # Quantity belongs to the operation, not its current order
 
+For an authorized repair, read the complete saved executable files and Rules
+before loading another reference or choosing a controller. Choose from the
+actual existing lifecycle, not the request's vocabulary. After those reads,
+load only the applicable owner and finish its connected saved edit/readback.
+Save-only permits the repair; it excludes starting backtests or deployments.
+A diagnosis without a saved change is unfinished while the file is writable.
+
 ## Observe retained executions before continuing active work
 
 Use the complete tested `OperationFills` and `RetainedOperations` component below,

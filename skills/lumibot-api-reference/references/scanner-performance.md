@@ -373,3 +373,9 @@ that repeated reads were reduced unless the more precise placement is verified.
 Do not copy a recommendation or revision-analysis description into the final
 summary as though it proves the saved call ordering. Report each claimed
 mechanism from the actual saved body, including successful alternatives.
+
+Separate normal batching from failure isolation in that summary. The bounded
+quote reader can split failed or malformed batches down to one-asset requests;
+an omitted member can trigger that recovery, whereas a returned None need not.
+Do not promise no per-contract refetch when that fallback remains. Report the
+successful fast path, bounded retry behavior and any unmeasured speed separately.
