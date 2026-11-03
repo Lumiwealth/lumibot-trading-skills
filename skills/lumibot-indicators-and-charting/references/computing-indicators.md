@@ -49,6 +49,34 @@ Always guard for None/NaN -- early in the series the indicator will not have eno
     if sma_50 is None or pd.isna(sma_50):  # import pandas as pd when using pd.isna
         return
 
+
+Minimum history is a separate check from a finite indicator value. For a calculation
+based on N price changes, N closes supply only N-1 changes: RSI(N) needs at least
+N+1 completed closes. Obtain that history before computing or trading, even when
+an unrelated chart request already populated a short data cache. Recursive
+smoothing can require more initialization history; preserve the requested
+algorithm and verify its actual input frame. Never turn missing warmup into zero,
+shorten the indicator period, or treat the strategy's own plotted value as proof.
+
+```python
+import math
+
+def rsi_with_history(self, asset, period):
+    history = self.get_historical_prices(asset, period + 1, timestep="day")
+    if history is None or history.df is None or len(history.df) < period + 1:
+        return None
+    closes = history.df["close"]
+    if not all(value is not None and math.isfinite(float(value)) for value in closes):
+        return None
+    value = self.indicators.rsi(asset, length=period, timestep="day")
+    return float(value) if value is not None and math.isfinite(float(value)) else None
+```
+
+This example establishes the minimum input count, not complete recursive seeding.
+Use the data source's completed-bar convention and sufficient prior history for
+the selected smoothing. Keep startup without enough history as no signal; check
+the first eligible decision and a later decision independently from captured bars.
+
 Custom return contract: a function returning a Series yields a scalar value;
 a function returning a DataFrame yields an IndicatorRow. Guard either result
 for missing history before using its value or fields.

@@ -25,8 +25,10 @@ General rules:
 - Keep `initialize` deterministic and fast. It should configure state, assets,
   parameters, components, and cadence. It should not place orders.
 - Keep each live trading iteration short. Fetch fresh broker/order state only
-  when needed, act on it, then return. Do not block scans with long sleeps,
-  polling loops, unbounded retries, or waiting for fills.
+  when needed, act on it, then return. Avoid unbounded fill waits, long sleeps,
+  network polling loops and unbounded retries. An explicitly requested short
+  cancellation window needs the bounded local deadline owner described below;
+  returning to a future iteration is not a substitute for that owner.
 - Treat live broker state as the source of truth for orders and positions. In
   live trading, stale local order objects can happen after reconnects, broker
   delays, manual cancels, partial fills, or bot restarts.
@@ -71,12 +73,17 @@ quickly; the iteration fallback should make the strategy resilient.
 Avoid blocking scans:
 
 - `self.sleeptime` controls delay after a completed iteration; it does not
-  preempt a running `on_trading_iteration`. Keep worst-case iteration wall time
-  well below the shortest strategy-managed order deadline.
+  preempt a running `on_trading_iteration` or blocking framework work before the
+  next iteration. Keep scanning and broker reads out of an armed deadline's path.
 - Reconcile pending-order deadlines before starting fresh market scans. After
-  submitting an order with a short deadline, store its id/deadline and return
-  immediately; do not continue option-chain scans, serial quote loops, or hedge
-  precomputation in that iteration.
+  submitting an order with an explicit short cancellation window, retain its
+  accepted Order and monotonic acceptance time. Adapt the tested resident wait
+  in `deadline-order-example.py:submit_entry`: short local waits and local
+  outcome checks through the full requested window, then cancellation dispatch
+  before returning. Do not continue chain scans, quote loops, broker-refreshing
+  reads or hedge precomputation during that window. Later exact-order reads
+  reconcile the unresolved cancellation. Ordinary bar-level strategies without
+  this timing requirement can return and continue on their normal cadence.
 - Use bulk price APIs such as `get_last_prices(assets)` and
   `get_historical_prices_for_assets(...)` instead of serial per-asset calls.
 - Cache slow session-level data such as option chains, selected expiries, and
@@ -85,12 +92,16 @@ Avoid blocking scans:
 - Chunk unavoidable scans. Persist a resume cursor, check a monotonic
   wall-clock budget and nearest order deadline between chunks, then return and
   resume next iteration. Bound provider retries per call and per iteration.
-- Do not use `while` loops that wait for an order to fill inside
-  `on_trading_iteration`.
+- Do not use unbounded fill-wait loops or hot broker polling inside
+  `on_trading_iteration`. The bounded local fill-window/cancel owner above is
+  different: it ends at a fill, a confirmed terminal state or the requested
+  deadline, services no network reads while waiting, then dispatches cancellation.
 - Do not call `time.sleep()` for long periods in live trading loops. If a delay
   is required, store timestamps such as `self.next_scan_at`,
   `self.cancel_after_by_order_id`, or `self.cooldown_until_by_symbol`, then
-  return and let the next iteration handle it.
+  return and let the next iteration handle ordinary cooldown/scheduling work.
+  Do not use that future-iteration pattern as the sole owner of an explicit
+  short cancellation deadline; the framework can block before the next call.
 - Do not re-scan every symbol while waiting on an existing order. Reconcile
   pending orders first, then skip only the affected symbol/contract if it is
   genuinely blocked.
@@ -197,6 +208,9 @@ hedges, or second legs:
 
 ```python
 def on_trading_iteration(self):
+    # Strategy-owned helpers: dispatch due cancellation from local owned state
+    # before a broker read. The submission caller owns any short fill window.
+    self._cancel_timed_out_orders()
     self._refresh_live_order_state()
     self._cancel_timed_out_orders()
     self._repair_missing_hedges_if_needed()
@@ -209,7 +223,7 @@ def on_trading_iteration(self):
 
 Do not:
 
-- Perform a blocking wait for fills.
+- Perform an unbounded wait for fills or poll the broker while waiting.
 - Use long sleeps to implement timeouts.
 - Recompute expensive indicators by hand when `self.indicators` can do it.
 - Use stale local order lists after placing or canceling an order when the next

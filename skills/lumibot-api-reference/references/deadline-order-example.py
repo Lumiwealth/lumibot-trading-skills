@@ -39,6 +39,7 @@ class FastOrderLifecycle(Strategy):
         self.hedge_reconcile_max_attempts = max(1, int(self.parameters.get("hedge_reconcile_max_attempts", 3)))
         self.hedge_inputs_by_entry_id: dict[str, Any] = {}  # original asset/quantity, including late fills
         self.canceling_entry_ids: dict[str, Any] = {}
+        self.entry_terminal_policy_by_id: dict[str, Any] = {}
         self.hedge_by_entry_id: dict[str, Any] = {}
         self.hedge_attempts_by_entry_id: dict[str, Any] = {}
         self.active_entry_order_id = None
@@ -119,7 +120,7 @@ class FastOrderLifecycle(Strategy):
             if prior_key != key:
                 for records in (self.entry_order_ids, self.hedge_inputs_by_entry_id,
                                 self.canceling_entry_ids, self.hedge_by_entry_id,
-                                self.hedge_attempts_by_entry_id):
+                                self.hedge_attempts_by_entry_id, self.entry_terminal_policy_by_id):
                     if prior_key in records:
                         records[key] = records.pop(prior_key)
                 if self.active_entry_order_id == prior_key:
@@ -135,20 +136,12 @@ class FastOrderLifecycle(Strategy):
                         0.0, self.cancel_timeout_seconds - self.cancel_dispatch_margin_seconds)
         self._refresh_state()
         while time.monotonic() < self.cancel_deadline_monotonic:
-            if tracked.is_filled():
-                self._place_stock_hedge_once(tracked)
-                return tracked
-            if tracked.is_canceled() or tracked.status in {Order.OrderStatus.ERROR, Order.OrderStatus.EXPIRED}:
-                self._finish_terminal_entry(key, tracked.status)
+            if self._observe_entry_outcome(key, tracked):
                 return tracked
             self.sleep(min(.025, max(0, self.cancel_deadline_monotonic-time.monotonic())),
                        process_pending_orders=True)
         # The broker may update the local object during the final wait.
-        if tracked.is_filled():
-            self._place_stock_hedge_once(tracked)
-            return tracked
-        if tracked.is_canceled() or tracked.status in {Order.OrderStatus.ERROR, Order.OrderStatus.EXPIRED}:
-            self._finish_terminal_entry(key, tracked.status)
+        if self._observe_entry_outcome(key, tracked):
             return tracked
         with self.fence:
             # Callback completion may have retired this operation after the
@@ -156,11 +149,7 @@ class FastOrderLifecycle(Strategy):
             # for the still-owned pending entry; never overwrite a later entry.
             if self.active_entry_order_id != key:
                 return tracked
-            if tracked.is_filled():
-                self._place_stock_hedge_once(tracked)
-                return tracked
-            if tracked.is_canceled() or tracked.status in {Order.OrderStatus.ERROR, Order.OrderStatus.EXPIRED}:
-                self._finish_terminal_entry(key, tracked.status)
+            if self._observe_entry_outcome(key, tracked):
                 return tracked
             self.cancel_requested = True
             self.canceling_entry_ids[key] = True
@@ -175,12 +164,22 @@ class FastOrderLifecycle(Strategy):
             self._reconcile_entry(force=True)
         # Do not clear state here: cancellation is still unresolved.
         # Schwab may already have updated this object or queued a callback.
-        if tracked.is_filled():
-            self._place_stock_hedge_once(tracked)
+        self._observe_entry_outcome(key, tracked)
         with self.fence:
             if self.active_entry_order_id == key:
                 self.next_reconcile_at = time.monotonic() + self.reconcile_backoff_seconds
         return tracked  # caller MUST return from scanning/iteration
+
+    def _observe_entry_outcome(self: Any, key: Any, order: Any) -> bool:
+        """Every wait, callback and reconciliation shares complete outcome actions."""
+        if order.is_filled():
+            self._place_stock_hedge_once(order)
+            return True
+        if order.is_canceled() or order.status in {Order.OrderStatus.ERROR, Order.OrderStatus.EXPIRED}:
+            self._finish_terminal_entry(key, order.status)
+            return True
+        with self.fence:
+            return bool(self.active_entry_order_id != key)
 
     def _observe_cancel_outcome(self: Any, outcome: Any) -> Any:
         observed = outcome.get("order") if isinstance(outcome, dict) else outcome
@@ -188,10 +187,7 @@ class FastOrderLifecycle(Strategy):
             key = self._owned_entry_key(observed)
             if key is None:
                 return
-            if observed.is_filled():
-                self._place_stock_hedge_once(observed)
-            elif observed.is_canceled() or observed.status in {Order.OrderStatus.ERROR, Order.OrderStatus.EXPIRED}:
-                self._finish_terminal_entry(key, observed.status)
+            self._observe_entry_outcome(key, observed)
         elif isinstance(outcome, dict):
             status = outcome.get("status")
             if str(getattr(status, "value", status)).lower() == "filled":
@@ -291,6 +287,12 @@ class FastOrderLifecycle(Strategy):
             if str(getattr(status, "value", status)).lower() not in {
                     "canceled", "cancelled", "expired", "error", "rejected"}:
                 return  # a callback name alone cannot prove broker-terminal status
+            order = self.entry_order_ids.get(key)
+            if order is not None and key not in self.entry_terminal_policy_by_id:
+                # The policy key still exists and the entry slot remains reserved.
+                # Override only with the original strategy's local bookkeeping.
+                self.on_entry_terminal(order, status)
+                self.entry_terminal_policy_by_id[key] = status
             self.canceling_entry_ids.pop(key, None)
             # Keep entry_order_ids: a later fill still belongs to the original entry.
             if self.active_entry_order_id == key:
@@ -300,6 +302,16 @@ class FastOrderLifecycle(Strategy):
                 self.cancel_requested = False
             self._refresh_state()  # cannot release an unresolved hedge
 
+
+    def on_entry_terminal(self: Any, order: Any, status: Any) -> None:
+        """Example hook, not a LumiBot callback: preserve existing local policy.
+
+        Adapt the original strategy's no-fill cooldown/counters here, using this
+        operation's order or saved policy key before its pending state is cleared.
+        No broker I/O, scans, submissions or lifecycle reentry belong in this hook.
+        The default adds no policy to strategies which have none.
+        """
+        return None
 
     def on_canceled_order(self: Any, order: Any) -> Any:
         key = self._owned_entry_key(order)
@@ -358,11 +370,7 @@ class FastOrderLifecycle(Strategy):
             self.entry_order_ids[key] = order
             if self.active_entry_order_id == key:
                 self.entry_submission_unknown = False
-        if order.is_filled():
-            self._place_stock_hedge_once(order)
-        elif order.is_canceled() or order.status in {Order.OrderStatus.ERROR, Order.OrderStatus.EXPIRED}:
-            self._finish_terminal_entry(key, order.status)
-        else:
+        if not self._observe_entry_outcome(key, order):
             self._refresh_state()  # CANCELLING/PENDING_CANCEL remain blocking
 
 

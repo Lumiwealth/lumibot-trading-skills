@@ -13,6 +13,41 @@ compact, copyable Python implementation with its callbacks and reconciliation
 path. Loading this internal reference does not show that implementation to the
 user. Load and adapt the complete combined implementation referenced below instead of replying only with prose.
 
+For an existing-strategy cancel-after-N-seconds repair, adapt the **resident
+wait in `deadline-order-example.py:submit_entry`**, not just its stored clock.
+The submitting call retains the accepted Order and monotonic acceptance time,
+then stays in short local waits until a fill, confirmed terminal state or the
+configured full fill window ends. It checks local state once more after the
+last wait, dispatches cancellation without a preceding broker read, and only
+then returns to the normal iteration. Keep later exact-order reconciliation.
+
+An existing helper that does `if now < deadline: return` and is called once
+after submission, then only by future `on_trading_iteration` calls, has **no
+resident deadline owner**. The framework can do blocking broker work before
+that next iteration. Moving `get_order` below the guard does not repair this
+control flow. Trace the saved submission caller through the wait and cancel
+call before finishing; a future iteration must not be its sole dispatcher.
+
+Keep its original confirmed-no-fill completion in one owned function, including its existing
+cooldown/counters and pending-state cleanup. Then route **every** terminal
+observation through that function. Do not add a clear-only terminal return
+inside a new wait loop. Read `deadline-order-example.py`: its
+`_observe_entry_outcome` delegates all checks to `_finish_terminal_entry`, which
+applies `on_entry_terminal` before releasing the entry. Adapt that structure to
+the existing strategy rather than replacing its trading engine. The hook is
+part of this example, not a LumiBot API, and adds no cooldown by default.
+
+After cancellation dispatch, the retained `Order` can remain CANCELLING while a
+fresh broker observation is already CANCELED. The cancel-requested flag prevents
+a second cancel request; it must not return before later status observation.
+A later permitted reconciliation pass must refresh the accepted identifier even
+when the retained order object exists. Use the returned observation for the
+shared fill/terminal completion action. Reading only when `order is None` leaves
+a stale object blocking forever. Trace this concrete sequence before saving:
+local CANCELLING, first permitted read still pending, next permitted read CANCELED,
+then original matching cooldown/cleanup. Preserve bounded retries and explicit
+unresolved/exhausted state; missing data does not authorize a replacement.
+
 Choose the responsible mechanics owner. A coupled scan/cancel/late-fill repair
 without a safe controller uses the complete fast-order-example implementation;
 its own short reservations protect callbacks, polling and broker I/O. An
@@ -64,8 +99,9 @@ against this list:
 - Every state the code stores is initialized in initialize, and every state
   that can block entries has a path that later clears it or retries it.
 - Every exact get_order read is wrapped so a slow, missing or rate-limited read
-  becomes unresolved blocking state, never an escaped exception. After a missed
-  callback, read the exact order at most once.
+  becomes unresolved blocking state, never an escaped exception. Each permitted
+  later recovery pass makes at most one exact-order read; a pending result does
+  not prohibit the next backed-off pass within the recovery budget.
 - After cancel_order returns, check the local order object for a fill (no
   broker read) and hedge it through the shared helper.
 - Finishing a pair never deletes the processed-entry record that the hedge
@@ -204,6 +240,20 @@ recovery policy even when every individual read is backed off.
 
 ## Match the requested deliverable
 
+
+Preserve existing **terminal outcome effects**, not only the status label.
+When adding a resident deadline wait, route each confirmed non-fill observation
+through the same existing completion action: before the wait, inside it, after
+its final wake-up, after cancellation, and during later reconciliation. If the
+original strategy applies a cooldown or records its instrument key before
+clearing pending state, retain that order of actions in every new branch. A
+branch that merely clears the pending pointer can bypass that policy and let
+the next scan re-enter immediately. Capture the matching operation and policy
+key before clearing them; never clear a newer operation from an older callback.
+Use the original completion helper, or extract that same existing behavior once
+and call it from all observation points. Do not invent a cooldown, change its
+duration, or apply it to unrelated operations when the strategy has none.
+
 For an existing-file repair, change only the requested behavior and its necessary
 callers. The checks below do not authorize rewriting unrelated strategy logic.
 If saved-file readback reveals a specific in-scope defect and editing remains
@@ -280,13 +330,12 @@ cancel_dispatch_at = accepted_at + max(0.0, fill_window_seconds - dispatch_allow
 ```
 
 Use that absolute `cancel_dispatch_at` in the resident local-order wait below.
-`self.sleep` is a wait plus SDK work, not a precise wake-up guarantee. Leave the
-allowance before the latest dispatch time; do not postpone cancellation for a
-last quote refresh, order lookup, logging, another scan or a later iteration.
-For the illustrated three-second budget, `accepted_at + 3.0` with a cancel only
-after expiry still misses the request budget. `accepted_at + 2.5` leaves a
-half-second local allowance while preserving a meaningful fill opportunity.
-Do not cancel immediately to manufacture a faster test result.
+Preserve a requested full fill window: "cancel after three seconds if unfilled"
+uses `accepted_at + 3.0` with the default zero allowance. A different explicit
+"dispatch by" boundary may configure an allowance for local overhead. These are
+different order policies. In both cases, avoid quote refreshes, order lookups,
+logging or another scan ahead of due cancellation. Do not cancel early merely
+to obtain a smaller measured time.
 
 Before finishing the edit, inspect **all** assignments to the pending entry's
 deadline, including initialization, normal submission and recovery/fallback.
@@ -381,31 +430,30 @@ For a strategy-defined timeout:
    before submitting the entry.
 2. Capture `accepted_at = time.monotonic()` immediately after submit_order
    returns, before bookkeeping, logging or reads. Derive the absolute dispatch
-   target from that acceptance time and the user's timeout, subtracting a
-   measured local dispatch margin. Store the returned order.identifier.
+   target from that acceptance time and the user's fill window. Subtract a
+   margin only for an explicitly configured dispatch-BY policy. Store the
+   returned order.identifier.
 3. Use a deadline-capable control path that cannot be starved by the next long
-   scan. Choose a measured safety margin before the user's actual dispatch
-   deadline; do not hard-code one user's timeout into shared guidance.
+   scan. Preserve a full fill window or the explicitly configured dispatch-BY
+   policy; do not hard-code one user's timeout into shared guidance.
 4. During that short resident wait, process pending events and inspect the local
    tracked order object. Do not call broker-backed get_order immediately before
    the deadline.
 5. At the target, call cancel_order once and retain the blocker.
 6. Return from the iteration so queued on_canceled_order or on_filled_order
    callbacks can run.
-7. If no callback resolves the order, perform one exact-order
-   self.get_order(order_id) reconciliation on a later iteration. Back off and
-   bound cancel retries.
+7. If no callback resolves the order, each permitted later reconciliation pass
+   performs one exact-order self.get_order(order_id), even if the retained object
+   still exists or cancellation was requested. Back off and bound recovery reads;
+   a pending return cannot disable the next permitted observation. Never resend
+   cancellation merely because a response remains pending.
 
-The timeout is the latest **request dispatch**, not the time to begin waking
-up, inspecting state or logging. Waiting the entire timeout and only then calling
-cancel_order is already late: local event processing, logging and dispatch take
-additional time. Keep a small measured dispatch allowance inside that budget.
-For example, a 3.0-second budget with a measured 0.5-second allowance targets
-2.5 seconds after acceptance. This is an example, not a new shared trading
-policy; preserve the user's fill opportunity and choose the allowance from the
-actual path. Do not cancel immediately or hide a missed deadline by skipping an
-eligible trade. Include tracking work in the budget rather than resetting the
-clock after it. Verify request-start time separately from response-return time.
+An explicit latest-request-dispatch policy includes local wake-up and dispatch
+work in its configured allowance. A full fill-window policy instead waits the
+entire requested interval and then dispatches; ordinary scheduling jitter is not
+permission to shorten it. Neither policy promises broker acknowledgment at that
+instant. Do not hide a missed deadline by skipping an eligible trade or resetting
+the acceptance clock. Observe request start separately from response return.
 
 The strategy can control prompt cancel dispatch. It cannot guarantee Schwab's
 network response or broker-confirmed terminal time exactly at three seconds.

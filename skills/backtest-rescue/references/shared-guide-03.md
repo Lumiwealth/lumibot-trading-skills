@@ -48,6 +48,13 @@ Success response:
   because calling an AI model in the trading loop adds variable latency and
   model-credit cost. Separately disclose feed, broker and order-fill limits;
   those execution limits do not replace the model-latency/cost explanation.
-- Report the final revision id/version, smoke date range, data provider, filled trade count, and the main change that made it work.
+- Report the final revision id/version, test date range, data provider, filled
+  trade count, recorded cash/holdings and applied fee/slippage basis, following
+  `backtest-analysis`'s "Reconcile the final handoff against the exact run".
+  Include the actual configured nonzero costs even when the user did not choose
+  them. "Fees may differ" is not a disclosure of the nonzero costs this run used.
+  Reuse the exact saved settings/code and artifacts; do not invent a rate or
+  assume zero. Keep this factual cost statement compact, and explain the main
+  change that made the strategy work.
 - If the user approved looser filters or changed order behavior, say exactly what changed and preserve that approval in the visible plan evidence.
 - If no working revision is possible, state the exact blocker and the best supported alternative.
