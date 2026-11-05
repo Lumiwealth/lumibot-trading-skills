@@ -55,6 +55,43 @@ non-UUID hook label is never a valid argument to `get_backtest_logs`,
 discover or confirm the expected validation failure. Plan setup may happen,
 but the first domain evidence call for an unqueryable hook must be `get_file`.
 
+## Cost choice before starting an expensive AI backtest
+
+Before `start_backtest`, inspect the saved code's AI model and calling cadence.
+For an unconfirmed long run on a saved expensive model, warn about its cost,
+present the two choices below, and wait for the user's answer. Do not submit
+the backtest first and warn afterwards.
+
+A strategy's managed provider calls consume real BotSpot AI credits. They are
+separate from how the current chat or an evaluation actor is funded. Explain
+that credit consumption alongside the rough cost estimate, not as merely
+model-equivalent usage. Compute any token estimate from explicit assumptions:
+`calls * (input_tokens_per_call * input_rate_per_million +
+output_tokens_per_call * output_rate_per_million) / 1_000_000`. Calculate each
+input/output term before multiplying by the call count; do not mix tokens per
+call with tokens for the whole run. Count every configured agent invocation and
+state that tool output, reasoning tokens, retries and actual cadence can change
+the total. Use the catalog's rates and distinguish provider cost from any
+separately documented BotSpot credit conversion.
+
+If the user has not yet chosen the saved expensive model/cost for a long test,
+present two complete choices before asking:
+- Keep the preferred model for the entire requested window.
+- First test the requested longer window on the catalog's cheaper bot model,
+  THEN test a shorter window on the original preferred model.
+Name both models and both phases in the second choice. Identify each model by its exact returned catalog ID in backticks. If also
+using a display name, copy it from that same row; do not expand an ID into
+a guessed model name or combine providers, versions or variants.
+A binary “preferred or cheap for this test?” loses the second phase. A missing runner or other code
+problem does not replace this cost comparison; explain that separately.
+
+A model name in saved code is configuration, not a human cost choice. A generic
+"run this strategy for a year" request has not selected that expensive model's
+cost. The exception applies when the human explicitly selected that model for
+this validation (in the current request or a prior confirmed choice). Then
+proceed without asking again or silently switching models. Resolve this before
+following the run-only instruction to start before normal prose.
+
 The terminal hook is already evidence. A strategy, AI strategy, revision, or
 conversation id from the request context is never a backtest identifier. If its backtest identifier is absent,
 non-UUID, or absent from a successful backtest inventory, do not call
