@@ -48,6 +48,50 @@ button instructions. If neither an open chart nor a requested instrument is
 available, report the successful private save and ask which instrument to use.
 Live updates start when they turn on **Live** on that chart.
 
+## Converting an indicator from another platform
+
+Use this same private chat workflow for supplied indicator source. Preserve the
+source language's version, arithmetic, state, editable input names and labels,
+and plotted output kinds. Do not replace conversion with a new page, manual
+Save instructions, a strategy, or a backtest. Keep supplied and translated code
+in the person's private indicator; it does not belong in a public built-in,
+example or skill.
+
+For Pine Script, preserve `na` rather than inventing zero to avoid a division
+error. An undefined ratio remains `None`. `ta.ema` starts with the first defined
+source; later undefined sources leave its previous state and output unchanged.
+Continue emitting that last EMA value on such a bar. `ta.sma` averages the latest
+length defined observations, rather than counting undefined observations as
+zero or as part of the required length. Keep leading outputs undefined until
+their actual prerequisites exist. Check the beginning of history and gaps as
+well as the latest converged values. An explicit `nz` or conditional replacement
+in the source is different: preserve that replacement where it appears.
+
+A color input must affect the rendered output. The existing Indicator contract
+supports a class-method `describe(cls, inputs=None)` override; it is not limited
+to the colors in the class-level `OutputSpec` declarations. Resolve inputs,
+copy the normal description, and update the corresponding output's color:
+
+```python
+@classmethod
+def describe(cls, inputs=None):
+    resolved = cls.resolve_inputs(inputs or {})
+    description = super().describe(inputs)
+    for output in description["outputs"]:
+        if output["id"] == "average":
+            output["color"] = resolved["line_color"]
+    return description
+```
+
+This example assumes the class declares the `average` output and `line_color`
+input. Keep the source's exact defaults and connect its actual input/output
+identifiers. Do not remove useful color inputs or leave them inert. A change
+to an input recomputes the description through this same supported contract.
+
+Pine semantics: [operators](https://www.tradingview.com/pine-script-docs/v5/language/operators/),
+[undefined ratios and averages](https://www.tradingview.com/pine-script-docs/v5/writing/debugging/),
+and [function reference](https://www.tradingview.com/pine-script-reference/v5/).
+
 ## Write a LumiBot `Indicator` class
 
 This workflow runs the class on the chart. The reusable LumiBot class contract
