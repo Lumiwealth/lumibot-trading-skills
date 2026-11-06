@@ -35,6 +35,16 @@ class CatalogParity(unittest.TestCase):
         actual = {p for p in (ROOT / "skills").rglob("*") if p.is_file()}
         self.assertEqual(actual, advertised)
 
+    def test_custom_indicator_resource_can_be_loaded_from_its_advertised_path(self):
+        data = json.loads((ROOT / "catalog.json").read_text())
+        skill = next(s for s in data["skills"] if s["name"] == "lumibot-indicators")
+        path = "references/custom-chart-indicators.md"
+        self.assertIn(f"`{path}`", skill["body"])
+        resources = [r for r in skill["references"] if r["path"] == path]
+        self.assertEqual(len(resources), 1, "the advertised custom-indicator resource must exist")
+        name = re.search(r'^name: ([a-z0-9-]+)$', skill["body"], re.M)[1]
+        self.assertEqual((ROOT / "skills" / name / path).read_bytes(), resources[0]["text"].encode())
+
     def test_operation_lookup_has_one_definition_and_keeps_entry_identity(self):
         import ast
         import runpy
