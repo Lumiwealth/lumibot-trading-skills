@@ -67,9 +67,13 @@ Two related contracts live here:
   strategy, plan or backtest for it. `inputs`, `outputs` and `levels` hold
   `InputSpec(...)`, `OutputSpec(...)` and `Level(...)` objects, never dicts.
   Every save is test-run; if it is refused, fix the named problems and save
-  again. When the person also wants it on a chart, add it with `live_chart`
-  (`create_chart` indicators or `add_indicator`) by the `chartKey` the save
-  returns (see the live chart section of `chart-artifacts`).
+  again. Before you reply, check `live_chart` `action: "list"`: a saved indicator
+  goes on the chart the person has open, with `add_indicator` and the `chartKey`
+  the save returns, even when they only asked to create it. This saved-object
+  `chartKey` is different from Python's `Indicator.key`; never place the Python
+  class key on a chart. For several requested indicators, carry every returned
+  saved reference into the placement call and verify the complete set. When they
+  want a chart and none is open, use `create_chart` (see `chart-artifacts`).
 
 Core rule: logging is not charting. A strategy that only logs an indicator, threshold,
 entry, exit, or stop has not created chart data. For chartable strategies,

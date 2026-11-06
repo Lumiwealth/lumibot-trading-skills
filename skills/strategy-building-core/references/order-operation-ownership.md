@@ -49,6 +49,22 @@ already created an unused helper, delete ONLY that newly created unused file
 with the ordinary file tool and current revision, then read back the file set.
 Keep every pre-existing file and one-time dependency initialization.
 
+Before changing an operation's state, trace each field through initialization,
+reset, submission, polling and fill callbacks. Preserve its value type at every
+reader and writer. An attempt journal is a list of attempt records; a retry
+count is an integer. Keep them in distinct fields, such as `attempt_records`
+and `retry_count`. Never initialize or reset the journal to a number, increment
+it as a counter, or iterate over a counter. When adapting the example, map both
+fields to the existing state consistently across every connected method.
+Read back the whole saved operation, including its resets and fallback paths;
+a correct submission branch does not make an incompatible polling reader work.
+Preserve unrelated cancellation reconciliation too: adding serialization must
+not replace an existing missing-order cleanup branch with a bare `continue`.
+A stale cancellation lookup ID must follow the original cleanup path so it
+cannot permanently block the next scan. This is separate from an unresolved
+published submission: retain that operation's quantity and identity until its
+outcome is established; never treat a missing lookup as a fill or resubmit it.
+
 This route repairs an existing coherent queue/operation. For that routing
 choice, an existing entry -> hedge preparation/queue -> reconciliation ->
 completion -> next-entry flow is an existing operation, even when its ID aliases,
