@@ -180,6 +180,12 @@ saved until a save succeeds.
         return {"up": None, "down": line}
 ```
 
+- Preserve the smoothing operator when translating Pine built-ins. `ta.atr(n)`
+  is Wilder's RMA of true range, not a rolling SMA. Seed it with the first
+  n true ranges' arithmetic mean; afterwards update with
+  `atr = (previous_atr * (n - 1) + true_range) / n`. Keep this recurrence even
+  when that ATR feeds another indicator's bands or stops. A deque average on
+  every bar silently changes the supplied formula.
 - SuperTrend follows TradingView exactly. With `atr` = Wilder's ATR (RMA of
   true range), `basic_upper = hl2 + factor * atr`,
   `basic_lower = hl2 - factor * atr`:
