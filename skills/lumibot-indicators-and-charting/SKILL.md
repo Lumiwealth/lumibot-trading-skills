@@ -75,6 +75,12 @@ Two related contracts live here:
   saved reference into the placement call and verify the complete set. When they
   want a chart and none is open, use `create_chart` (see `chart-artifacts`).
 
+- Converting indicator source: when a message contains indicator source from
+  another platform (Pine Script, MQL and others), the source is the request, even
+  with no other words. Do not ask what to do with it, and do not swap it for a
+  built-in indicator. Load `references/indicator-conversion/README.md` with
+  `skills reference get`, then its language file, and `references/custom-chart-indicators.md`.
+
 Core rule: logging is not charting. A strategy that only logs an indicator, threshold,
 entry, exit, or stop has not created chart data. For chartable strategies,
 verify the saved code actually emits finite values through `add_line`,
