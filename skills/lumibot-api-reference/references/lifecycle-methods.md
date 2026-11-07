@@ -42,10 +42,56 @@ General rules:
 
 ORDER STATE AND HEDGE FLOW PLACEMENT
 
+Native order identity is mutable. The broker can change the same Order object's identifier
+from a provisional UUID to its broker ID during or after submission. Before any
+new order-tracking implementation, load only the complete
+`lumibot-strategy-building:references/order-quantity-example.py` through
+`skills reference get`, save that whole module first, then wire its
+`StrategyOrderLedger` into the strategy. The separate
+`order-operation-ownership.md` reference is for repairing an existing connected
+multi-leg/hedge owner in place; do not substitute its repair snippets for the
+complete integration in a new strategy. The reference is saved strategy code,
+not an SDK import.
+
+Use its `StrategyOrderLedger` owner when no equivalent integration already exists:
+initialize with `StrategyOrderLedger.for_strategy(self)`; read `refresh()`,
+`fills()` and `pending()` before decisions; submit an ordinary created Order with
+`order_ledger.submit(order)`; feed partial/full/cancel callbacks to
+`order_ledger.observe(order)`. Save the entire resource as a strategy helper,
+including its OperationFills/RetainedOperations classes. Do not rebuild a scalar
+pending-ID flag alongside it or import this strategy-owned helper from LumiBot.
+The owner has no signal or exposure policy; the strategy still performs its
+normal exact-asset position, cash and entry/exit checks.
+
+In particular, retain the created Order before `submit_order` under one immutable
+attempt token. Bind a returned Order to that same attempt, and follow the retained
+object's canonical current identifier for polling and cancellation. A saved list
+of strings before/after submit is insufficient: assignment can occur later.
+Historical aliases attribute observations; they are not additional broker IDs
+that must all resolve. If A is missing but current B resolves, reconcile B.
+Callbacks must recognize that retained object or its known identities and feed
+the SAME attempt's observer. Repeated cumulative fills under A and B count once.
+Keep plain attempt records in `self.vars` for normal managed restart, preserving
+restored quantities, aliases and current IDs. Keep live Order objects and locks
+on the process owner; restore references through ordinary exact-order reads.
+Do not adopt unknown account holdings to replace missing ownership evidence.
+
+Before a NEW entry, compare the successfully read position for the exact Asset
+(including outcome/expiry/right) with cumulative strategy-owned executions and
+unresolved attempts. A positive unexplained account position blocks a new entry
+even when the owned quantity is zero. Checking only `actual < owned` misses this
+case: actual=1, owned=0 must not buy another unit into a one-unit exposure limit.
+Do not relabel the unexplained unit as owned. Retain any valid owned exit and
+bound its quantity to confirmed owned inventory and the actual position, leaving
+other holdings alone. An unavailable read is unknown, not a zero position.
+Do not clamp confirmed executions to a configured exposure limit: retain the
+actual quantity and reconcile an excess; enforce the limit before submission.
+
 Order callbacks, reconnect snapshots, and exact-order reconciliation are three
 inputs to one idempotent order-state reducer. A typical pattern is:
 
-1. Persist stable broker order ids and the strategy's processed quantity/state.
+1. Persist stable attempt identities, current broker IDs, attribution aliases
+   and the strategy's processed quantity/state.
 2. Feed callback observations to the reducer as the fast path.
 3. On reconnect, restart, or suspected missed callback, reconcile the exact
    tracked order and any related position/open hedge orders.
@@ -118,9 +164,13 @@ Avoid blocking scans:
   unresolved and use an idempotency guard so `on_filled_order` plus
   reconciliation cannot place the hedge twice.
 
-Fill quantity semantics must be verified at the adapter/framework boundary.
-When an observation is cumulative, persist a per-order cumulative high-water
-mark and compute `delta = max(0, observed_cumulative - processed_cumulative)`.
+LumiBot fill callback `quantity` is the new execution quantity. The framework
+has already appended that execution to `order.transactions` before invoking the
+callback. Sum those transactions for its cumulative observation; never treat
+successive callback quantities as cumulative totals. The existing
+`OperationFills.observe(order)` example does this without an invented fill API.
+For those observations, persist a per-attempt cumulative high-water mark and
+compute `delta = max(0, observed_cumulative - processed_cumulative)`.
 For cumulative observations 2, duplicate 2, then 5, the actionable deltas are
 2, 0, and 3. When a broker supplies incremental executions instead, deduplicate
 by stable execution id. Never combine both interpretations silently.
@@ -360,9 +410,9 @@ Do not:
 
 RESTART AND RECONNECT RECOVERY
 
-- Persist stable broker order ids, processed cumulative quantities, hedge order
-  ids, and hedge progress in JSON-safe strategy state. In-memory sets alone are
-  not restart-safe.
+- Persist stable attempt identities, canonical current broker IDs, aliases,
+  processed cumulative quantities and hedge progress in JSON-safe strategy
+  state. In-memory sets alone are not restart-safe.
 - Reconcile broker entry state, actual position exposure, and related open hedge
   orders before submitting a replacement hedge.
 - Feed restart snapshots through the same idempotent reducer as callbacks. A

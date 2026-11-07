@@ -43,8 +43,20 @@ strategy without intraday protection remains valid on that schedule.
 
 ## Complete the current customer workflow
 
-An edit in an established backtesting conversation is a test-change-test task.
-A completed earlier run or plan does not end that workflow. Save the requested
+For an authorized implementation or edit request, finish the smallest coherent
+saved change before ending. Describing a needed refactor or inspecting source
+alone does not complete that request. Missing live timing or deployment proof
+limits the verification claim; it does not by itself prevent editing the owned
+source with supported APIs and reading back the result. Preserve behavior,
+complete the requested edit, and state the actual remaining validation gap.
+A final sentence promising to continue does not execute more tools. Continue
+the edit now unless an actual external wait or concrete blocker prevents it.
+
+An edit in an established backtesting conversation continues its validation
+workflow, including when the immediately preceding backtest completed. Determine
+that workflow from the conversation and attached workflow context before treating
+the newest short edit as standalone. A prior successful result validates the old
+revision; it does not make validation of the requested edit optional. Save the requested
 code and coherent Rules, read both from the final revision, then call
 `start_backtest` on that revision using the established window, capital and data
 settings. Do this before the final answer; the customer need not ask to test again.
@@ -89,12 +101,105 @@ the requested intent while retaining original quotes and history, then read
 both saved files from the final revision before validation. A code-only readback
 does not establish that the requested behavior is coherently saved.
 
+When a build names a saved broker connection, resolve it with
+`list_broker_credentials`. That metadata verifies the connection, not whether
+the requested instrument exists there. Load `broker-data-access` and read the
+exact instrument through that connection before implementing its trading code;
+for a prediction contract use `broker_markets(action="search", marketId=...)`
+with the selected credential. Preserve the returned native ticker and outcome.
+A save-only request permits this read and excludes placing a trade. If the read
+fails, report the precise availability gap instead of claiming it was verified.
+
+For a new strategy without an existing order owner, use the complete tested
+`StrategyOrderLedger` integration in
+`lumibot-strategy-building:references/order-quantity-example.py`. Load that exact
+resource, save the WHOLE module (including OperationFills/RetainedOperations) as
+a strategy-owned helper FIRST, then import and wire it from the strategy's
+entrypoint. Do not reduce this integration to an inline pending-ID dictionary
+because the entry/exit signal is simple. The simple signal still needs the same
+broker identity, fill and restart handling. Import from the saved file, not
+from LumiBot. Keep an existing equivalent owner if it already meets the contract.
+Wiring:
+
+~~~python
+# initialize, preserving restored managed state:
+self.order_ledger = StrategyOrderLedger.for_strategy(self)
+# iteration, before entry decisions: False means pending evidence is unknown.
+known = self.order_ledger.refresh()
+# metadata plus actual cumulative quantities, keyed by original attempts:
+executions = self.order_ledger.fills()
+pending = self.order_ledger.pending()
+# after the unchanged signal/position/cash checks:
+self.order_ledger.submit(self.create_order(asset, quantity, side, limit_price=price))
+# each normal partial/full-fill and canceled callback:
+self.order_ledger.observe(order)
+~~~
+
+The helper calls normal `submit_order`/`get_order`; it retains the created Order
+before dispatch, follows current broker IDs, shares one cumulative-fill observer
+and checkpoints plain state through existing Vars. It does not choose signals,
+sizing, entry eligibility or an exit. Connect its results to those existing
+callers. Match the full Asset (including outcome) when deriving owned inventory;
+compare it with actual positions and pending attempts before entry. An unknown
+read or an unexplained position does not become zero or strategy-owned inventory.
+Keep accepted exit intent alive through partial fills/cancellation/restart.
+
+Before final readback, inspect the saved helper AND its actual submission,
+callback, refresh and decision consumers. Trace A changing to B, a missing old A
+with B readable, one cumulative fill repeated under both aliases, and normal
+managed restart. Preserve actual quantities; no watermark per alias or clamping
+to the desired exposure cap. Loading a helper without saving and connecting it
+is unfinished. This does not authorize testing in a save-only task.
+
+After the final save, read `get_strategy` and check that its latest revision is
+the revision just read back. Use its automatic `assetClasses`, `dataRequirements`
+and `aiEnabled` when reporting capabilities or selecting a later backtest/run.
+Keep the traded instrument and its own price data distinct from an underlying
+asset mentioned in its name. Do not claim classification succeeded from the
+Python text alone or silently replace the analyzer with a manual override.
+
 ## Select the execution owner before writing order logic
 
 For Python execution, read the applicable complete pattern BEFORE implementing
 that state owner, rather than as an optional lookup after a failed run. Keep an
 existing equivalent owner when it already satisfies the requirements. A narrow
 parameter edit does not authorize replacing unrelated working mechanisms.
+
+An unavailable order/position read is not an empty account. Reconciliation must
+communicate whether the broker state is known, and its caller must defer a new
+entry when that read failed or an accepted attempt remains unresolved. Merely
+logging "no new order" while continuing into entry logic does not preserve the
+exposure limit. Retain submitted identities and owned partial fills across a
+restart or uncertain reply; resume the ordinary iteration after a successful
+read rather than abandoning the strategy or blindly submitting another order.
+
+Fill callback `quantity` is the newly executed amount, not a cumulative total.
+Before `on_partially_filled_order` or `on_filled_order` runs, LumiBot has already
+appended that execution to `order.transactions`. Do not high-water/difference
+successive callback quantities: two fills of one contract are two contracts,
+not one. Read this skill's `references/order-quantity-accounting.md` and
+`references/order-quantity-example.py`; their existing `OperationFills.observe(order)`
+sums transaction quantities and retains per-attempt cumulative observations.
+Connect that same observer to callbacks, normal order reads and restart
+reconciliation, including canceled/replaced attempts and repeated observations.
+Use the existing order object and transactions; invent no fill-total method.
+
+For repair of an existing multi-leg/hedge operation owner, read
+`references/order-operation-ownership.md`. That reference repairs connected
+queue/hedge methods in place; it is not the implementation route for a new
+strategy. New strategy-owned tracking uses the complete `StrategyOrderLedger`
+integration above, rather than adapting the hedge-repair snippets.
+Retain the created Order object before dispatch: native adapters can assign a
+broker identifier onto that same object during or after `submit_order`. Poll
+and cancel with its current identifier, recognize callbacks by that object or
+its retained aliases, and connect the returned Order to that same attempt.
+A dictionary keyed only by the pre-submit UUID can miss every subsequent fill.
+Keep plain owned quantities, current IDs and aliases in existing `self.vars`
+state for normal managed restart; preserve restored values in initialization.
+Keep live Order objects and locks on the process owner, not in serialized Vars.
+Use the existing lifecycle/accounting patterns rather than a second persistence
+system. Unknown or lost ownership is not permission to adopt another holding;
+reconcile known attempts and defer unexplained exposure visibly.
 
 An expressly requested optimization still requires a saved implementation, with
 its existing trading policy preserved. The coherent implementation may change
@@ -283,6 +388,12 @@ Use the actual declared file-tool schema. When strategyId and revisionId are req
 Before file tools, resolve an existing owned strategy/revision or create the
 requested new workspace with create_strategy. An unbound new conversation has
 no files to list yet; list_files/get_file cannot discover an unspecified target.
+Before start_backtest, compare the complete revisionId against the latest
+successful file/revision result; one changed UUID character selects a different
+revision. Copy it without reconstruction. After an accepted start, a plan error
+does not mean that job failed or should be resubmitted: read the current plan
+and repair its exact wait linkage. A new revision's validation needs its own
+plan item rather than reusing a row bound to a different accepted wait.
 After start_backtest, copy the COMPLETE returned externalWaitId unchanged into
 record_external_wait_in_plan. It is distinct from backtestId; never reconstruct
 it by combining UUID segments. Bind that exact returned wait to existing plan
@@ -432,11 +543,16 @@ leaves queued duplicate work alive. Read back the complete causal repair.
 
 For partial/canceled hedge replacements or late/repeated executions, load this
 skill's `references/order-quantity-accounting.md` and
-`references/order-quantity-example.py` before editing. Track the original
-entry's obligation across ALL attempts, including retired orders; an account
-position is not proof of this entry's executed quantity. Newly reported old
-fills can require canceling and resizing a live replacement. Preserve the next
-independent entry and every unrelated trading policy.
+`references/order-quantity-example.py` before editing. Integrate both complete
+companion classes, `OperationFills` and `RetainedOperations`, with the existing
+callers. The original entry's obligation spans ALL attempts, including retired
+orders; an account position does not establish this entry's executions. Keep the
+original side allocation in that book with `prepare_legs` and dispatch the side
+and remaining quantity from `next_leg`; never reuse a completed closing side
+for the opening remainder. Keep the order-to-original-operation index through
+completion and every new-entry reset.
+Newly reported old fills can require resizing a replacement or reporting excess
+for the old operation. Preserve the next independent entry and unrelated policy.
 
 After several writes, use the LAST successful mutation/readback as the saved
 revision. Report the saved behavior and use the product's structured revision

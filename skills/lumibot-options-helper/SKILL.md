@@ -23,6 +23,16 @@ a tool name in an example does not install that tool in another client.
 OPTIONSHELPER COMPONENT
 --------------------------------------------------------------
 
+For a person’s already-held option payoff, read the held contract before asking
+for its strike or expiry: load broker-data-access and chart-artifacts, resolve
+the normal holdings, then use show_option_payoff with the verified contract and
+the user’s entry premium. This calculation does not require strategy code.
+Ask only for inputs still absent after that read. Lead the held-option payoff summary
+with its returned safe account label and paper/live mode, then the contract
+and calculation. A calculator’s market/scenario mode does not identify the
+account that supplied the holding.
+
+
 Keep broker reads inside their original enabling branches. Hoisting an order
 read above a conditional guard can add a second account request when that
 branch's existing helper already refreshes orders. Trace both enabled and

@@ -16,13 +16,20 @@ A diagnosis without a saved change is unfinished while the file is writable.
 
 ## Observe retained executions before continuing active work
 
-Use the complete tested `OperationFills` and `RetainedOperations` component below,
-then adapt its caller to the saved strategy. Do not replace it with a partial
-high-water dictionary that loses its reporting path. Every observation does four
+Use both complete tested classes, `OperationFills` and `RetainedOperations`,
+from `references/order-quantity-example.py`, then adapt their callers to the
+saved strategy. The integration snippets here are not replacement classes.
+Do not substitute a partial active-attempt list that loses its reporting path. Every observation does four
 things in order: resolve the original operation, update the attempt's high-water
 fill, record/report any excess over that operation's original target, THEN check
 whether active work can continue. The excess step still runs after completion,
 after the queue is cleared and while a different entry is active.
+
+For an existing close/open allocation, use the same book's `prepare_legs` and
+`next_leg` methods. They preserve the original per-side targets and advance from
+confirmed fills. Dispatch the returned side AND quantity. Never combine the
+whole operation's remainder with a completed queue head's old side. A completed
+closing leg must not become another closing order for the opening remainder.
 
 **Completion does not retire attribution.** Do not clear the only ledger or
 stop observing its orders when releasing the active entry. The example's
@@ -31,6 +38,11 @@ routes an observed hedge order to its ORIGINAL operation. `claim_completion`
 is once-only; a late report never completes/resumes the old entry again. A
 new entry receives its own book and original target, while the old book remains
 reachable. Clearing an active pointer is fine; deleting its only history is not.
+At final readback inspect every completion, target-reached and new-entry cleanup
+branch as well as the callbacks. Those branches may release active scheduling
+state, but must leave the original order aliases and cumulative observations
+reachable by the common observer. A separate history list is insufficient when
+the callback still searches only an active ledger that those branches clear.
 
 Connect this observer to actual `on_partially_filled_order` AND `on_filled_order`
 callbacks, before the existing option-entry logic. A canceled order's new
@@ -46,11 +58,17 @@ Connect that state to the existing diagnostic/logging path. Do not merely keep
 an updated history total and then claim excess is flagged when no such flag or
 report runs on the late callback path.
 
+Extend the EXISTING `initialize` with the new lock/accounting fields; do not
+replace it with a daily reset or an example's state list. Keep its original
+helper construction, caches, scheduling and other unrelated setup. Before
+saving, compare the original and edited initializer statement by statement:
+every original non-accounting statement still runs in the edited method.
+After the edit, read back that complete method with the connected callers.
+
 Keep one registry for the strategy lifetime. A new confirmed entry creates a
 book with `for_entry`; it does not recreate the registry, clear an attempts
-ledger, or discard old books. Preserve unrelated entry initialization while
-replacing any old accounting reset with this retained owner. Use this exact
-initializer in the common serialized owner:
+ledger, or discard old books. Add this accessor under the common serialized
+owner; it does not replace the strategy's initializer:
 
 ~~~python
 def retained_hedge_registry(self):
@@ -449,28 +467,58 @@ incorrect: Python evaluates the rejecting parser before calling `max`.
 Declaring `held_long_quantity` without wiring these callers does not fix that
 path. Check these concrete signed inputs before claiming the repair complete.
 If the existing strategy sells held inventory before opening a short, retain
-its position read and both allocation branches. Pass the operation remainder
-into that existing policy; do not replace it with unconditional `SELL_SHORT`.
-For a `submit` step, its preserved allocation has this numeric boundary:
+its initial position read and both allocation branches. Preserve that operation's
+close/open leg plan across retries. Creating its fill ledger does not establish
+that plan: an earlier entry claim or callback may already have called `for_entry`.
+Keep "plan not prepared" distinct from an empty or zero-inventory plan. Under
+the common owner, perform the original position read and publish both leg
+targets before the first dispatch even when the ledger already exists.
+For target100 with15 held long, the plan is
+SELL15 then SELL_SHORT85. Confirmed SELL15 advances to the short leg even if an
+account snapshot still shows15; rereading it must not create another SELL15.
+Partial or canceled attempts retain their leg's remaining obligation. Bound
+every dispatch by both its leg remainder and the total operation remainder.
+Do not replace the policy with unconditional `SELL_SHORT`. At operation
+creation, its preserved allocation has this numeric boundary:
 
 ~~~python
-position = self.get_position(asset)
-held_long = held_long_quantity(position.quantity if position is not None else 0)
-close_quantity = min(step["quantity"], held_long)
-quantity_to_submit = close_quantity if close_quantity > 0 else step["quantity"]
-side = Order.OrderSide.SELL if close_quantity > 0 else Order.OrderSide.SELL_SHORT
+if not book.legs_prepared:
+    position = self.get_position(asset)
+    held_long = held_long_quantity(position.quantity if position is not None else 0)
+    close_target = min(operation_target, held_long)
+    short_target = operation_target - close_target
+    book.prepare_legs([(Order.OrderSide.SELL, close_target),
+                       (Order.OrderSide.SELL_SHORT, short_target)])
+# After observing every required attempt and handling book.next_step():
+leg = book.next_leg()
+if leg is not None:
+    side, remaining = leg
+    created = self.create_order(asset, remaining, side, order_type=original_order_type)
+    token = book.register(created)
+    book.accepted(token, self.submit_order(created) or created)
 ~~~
 
-Register that permitted leg with the same operation before dispatch, then
-reconcile its confirmed fills before selecting the next leg. Keep the existing
-asset, order type, duration and other trading-policy arguments.
+Put the position read and allocation preparation inside that actual
+`if not book.legs_prepared` branch; book creation by an entry callback is not
+allocation preparation. `register` retains each attempt's original leg and
+rejects the wrong side. `next_leg` selects from per-leg confirmed totals and the
+whole-operation remainder. Do not retain a second mutable queue as its owner,
+rewrite its first quantity to the total remainder, or replay the closing side
+after its confirmed target is complete. The original short/open leg remains
+available even while the account snapshot lags. Old leg executions still route
+through the same retained operation and can require reconciliation.
+
+Register the next permitted leg with the same operation before dispatch, then
+reconcile its confirmed fills before selecting or retrying a leg. Sequential
+submission is valid when the actual terminal caller continues the remaining
+leg. Keep the existing asset, order type, duration and other policy arguments.
 
 
 An account position is NOT this entry's executed hedge quantity. It can include
 earlier entries, another bot, manual trades or a stale snapshot. Never declare
 this operation complete or size its replacement from an absolute account
-position. Use positions only for the existing permitted split between selling
-held shares and shorting the rest, after computing the operation remainder.
+position. Use positions for the original permitted split between selling held
+shares and shorting the rest, not to reset that split after each attempt.
 A short position has a legitimate NEGATIVE quantity. Do not pass it through the
 nonnegative execution-quantity validator before taking its positive part: that
 would throw before a replacement could be submitted. Parse the signed position
@@ -518,10 +566,10 @@ arithmetic for this operation when adopting the ledger. In particular, never
 subtract cumulative fills from an already reduced queue value: after target100,
 fill40 and replacement60, a late original cumulative60 leaves40, not
 `mutated_queue60 - total_filled60 = 0`. Repeated reconciliation of unchanged
-evidence must leave the same remainder. A sell-held-shares/short-rest split may
-choose the next side from the permitted position read, but every dispatch is
-bounded by the SAME original target minus all attributable fills. It must not
-reset the target or forget retired attempts when advancing a side/queue leg.
+evidence must leave the same remainder. A sell-held-shares/short-rest split
+retains its original leg targets, and every dispatch is bounded by the SAME
+original target minus all attributable fills. It must not reset either target
+or forget retired attempts when advancing a side/queue leg.
 
 After collecting the required observations under the common owner, process the
 selector's result: `cancel` claims that attempt's cancel request before dispatch;

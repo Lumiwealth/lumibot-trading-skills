@@ -9,6 +9,32 @@ Read the full conversation; preserve a genuinely explanation-only request as
 read-only. Do not require another permission merely to edit the saved code when
 the user already asked you to perform that change.
 
+Once the saved callers demonstrate the acquisition bottleneck and the supported
+batch APIs are known, apply the ordinary saved-file edit and read it back before
+ending the turn. An incomplete historical profile limits a measured speed claim;
+it does not prevent an authorized mechanical repair supported by the source.
+If more file context is needed, read it and continue. A diagnosis that leaves the
+identified hot paths unchanged is unfinished implementation.
+
+For a broad acquisition-speed repair, finish these checks before the final save
+and readback are called complete:
+
+- If the saved scan repeats both option quotes and account-order reads, repair
+  both demonstrated loops. Trace order-query helpers as well as their callers.
+  Keep each original symbol/phase guard; move existing candidate-order reads
+  after unchanged non-mutating price/eligibility checks. An ineligible contract
+  needs no candidate-order query. Trace the complete nonqualifying path in the
+  saved code, rather than checking only the first qualifying candidate.
+- Keep fresh order observations at each viable decision. Do not replace the
+  original guards with an iteration-wide cached positive or negative result.
+- Describe the saved failure handling precisely. A missing member in a
+  successful quote batch stays unavailable. A failed or malformed batch may
+  use bounded split isolation down to singleton requests. If that recovery is
+  present, do not claim that individual requests never happen. Distinguish
+  ordinary batching, failure recovery and fresh post-fill revalidation.
+  A batch API can also require multiple bounded chunks; say one request only
+  when the saved caller's chunk size actually accommodates the whole set.
+
 ## Choose the repair from the saved causal path
 
 A short request about slow trading does not determine the bottleneck. First identify the slow phase from the saved callers and available runtime evidence. Repeated quote or account reads while traversing the basket before choosing an entry belong to the acquisition-only branch below. The mere presence of timed entry and hedge methods does not turn that scan repair into a controller replacement. Preserve those later methods and their deadline boundaries while saving the demonstrated acquisition optimization. One structural chain lookup per symbol does not establish repeated quote/account work.
@@ -26,6 +52,15 @@ A broad request to fix slow trading authorizes demonstrated scan, cancellation a
 When this accepted-entry execution phase is the requested or demonstrated repair, complete and read back the coherent saved-file repair using the maintained `deadline-order-example.py` lifecycle. Keep its original price, signals, quantities and instruments. Explain separately that price aggressiveness is unchanged and may still limit fills. An optional question about a different price is not a prerequisite to those already authorized mechanical corrections. Do not substitute that question for making the demonstrated repair. Do not promise faster broker fills or submit live orders. For a compact saved file with connected initialize/iteration/callback changes, use one complete `replace_file` from the current readback instead of hand-counting an entire-file `replace_range`. Retain unrelated content. A mechanical repair preserves existing Rules meaning; discover optional files with `list_files` before reading them, and do not create a Rules ledger as a new prerequisite.
 
 Before saving and again after readback, trace the accepted entry through elapsed deadline, cancel requested, cancel terminal or late full fill, one hedge claim, submitted/failed hedge outcome and next-entry eligibility. The saved methods must implement every transition, not merely mention them in prose. A remaining wall-clock deadline, cancel-dispatch reset, callback gated on a later mutable order fetch, or untracked hedge submission means this lifecycle repair is unfinished. Continue the authorized correction; do not final-answer that scanning alone fixed the speed issue. The maintained `deadline-order-example.py` supplies this complete operation; adapt its methods while retaining the strategy's actual entry selection and price policy.
+
+Preserve the full quantity of every operation, including a stock fallback that
+crosses through zero. If the original operation sells more units than the long
+holding, it has a closing-sale leg and an opening-short remainder. Retain both
+effects and their ownership across partial replacements and callbacks; a close
+of the held units alone leaves the original operation unfinished. Trace zero,
+partial and sufficient holdings, and verify that closing plus opening quantities
+equal the requested remainder. This is preservation of existing policy, not
+authorization to add a short leg where the original operation had none.
 
 
 ## Explain the causal repair in the final handoff
@@ -61,6 +96,14 @@ Include its imports and preserve every unrelated method. An isolated new
 do not stage that helper-only write before the primary repair. Preserve an
 already modular file layout, but finish the connected primary caller edit in
 the same request. A complete reader sitting unused is not a saved optimization.
+
+Keep the supplied reader's return type consistent at every caller.
+`read_quote_snapshot` returns a `QuoteSnapshot` dataclass, whose quote mapping
+is `snapshot.quotes`; the dataclass itself has no dictionary `get` method.
+Pass `snapshot.quotes.get(asset)` into an existing price/liquidity helper's
+explicit quote argument, including an explicit `None` for a missing member.
+Do not pass the whole snapshot where a mapping or one quote is expected.
+Read back the connected consumer bodies and their argument types together.
 
 Collect contracts from structural chain data. Keep time-varying order and
 cooldown decisions in their original decision phase. Build the quote universe

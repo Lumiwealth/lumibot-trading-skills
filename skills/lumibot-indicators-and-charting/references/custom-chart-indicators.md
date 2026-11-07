@@ -48,6 +48,50 @@ button instructions. If neither an open chart nor a requested instrument is
 available, report the successful private save and ask which instrument to use.
 Live updates start when they turn on **Live** on that chart.
 
+## Converting an indicator from another platform
+
+Use this same private chat workflow for supplied indicator source. Preserve the
+source language's version, arithmetic, state, editable input names and labels,
+and plotted output kinds. Do not replace conversion with a new page, manual
+Save instructions, a strategy, or a backtest. Keep supplied and translated code
+in the person's private indicator; it does not belong in a public built-in,
+example or skill.
+
+For Pine Script, preserve `na` rather than inventing zero to avoid a division
+error. An undefined ratio remains `None`. `ta.ema` starts with the first defined
+source; later undefined sources leave its previous state and output unchanged.
+Continue emitting that last EMA value on such a bar. `ta.sma` averages the latest
+length defined observations, rather than counting undefined observations as
+zero or as part of the required length. Keep leading outputs undefined until
+their actual prerequisites exist. Check the beginning of history and gaps as
+well as the latest converged values. An explicit `nz` or conditional replacement
+in the source is different: preserve that replacement where it appears.
+
+A color input must affect the rendered output. The existing Indicator contract
+supports a class-method `describe(cls, inputs=None)` override; it is not limited
+to the colors in the class-level `OutputSpec` declarations. Resolve inputs,
+copy the normal description, and update the corresponding output's color:
+
+```python
+@classmethod
+def describe(cls, inputs=None):
+    resolved = cls.resolve_inputs(inputs or {})
+    description = super().describe(inputs)
+    for output in description["outputs"]:
+        if output["id"] == "average":
+            output["color"] = resolved["line_color"]
+    return description
+```
+
+This example assumes the class declares the `average` output and `line_color`
+input. Keep the source's exact defaults and connect its actual input/output
+identifiers. Do not remove useful color inputs or leave them inert. A change
+to an input recomputes the description through this same supported contract.
+
+Pine semantics: [operators](https://www.tradingview.com/pine-script-docs/v5/language/operators/),
+[undefined ratios and averages](https://www.tradingview.com/pine-script-docs/v5/writing/debugging/),
+and [function reference](https://www.tradingview.com/pine-script-reference/v5/).
+
 ## Write a LumiBot `Indicator` class
 
 This workflow runs the class on the chart. The reusable LumiBot class contract
@@ -84,6 +128,14 @@ class RangeMidline(Indicator):
 ```
 
 Rules that matter:
+
+- Snapshot the previous state before calculating the current bar. A recursive
+  band or direction rule that uses the previous close must read that snapshot,
+  even if another calculation has already produced the current close or band.
+  Compute current values in locals, then commit the new state only after all transitions and outputs are calculated.
+  Warm-up branches still record the current close for the next bar. Test a
+  transition where previous and current closes lie on opposite sides of a
+  prior band; a smooth trend alone can hide an early state overwrite.
 
 - `step(state, bar)` gets one bar at a time (`bar.open`, `bar.high`, `bar.low`,
   `bar.close`, `bar.volume`, `bar.time`, plus `bar.hl2`, `bar.hlc3`,
@@ -174,12 +226,18 @@ saved until a save succeeds.
     ]
 
     def step(self, state, bar):
-        ...  # compute `line` and `trend` (1 up, -1 down) from the inputs
-        if trend == 1:
+        ...  # compute `line` and boolean `up_trend` from the inputs
+        if up_trend:
             return {"up": line, "down": None}
         return {"up": None, "down": line}
 ```
 
+- Preserve the smoothing operator when translating Pine built-ins. `ta.atr(n)`
+  is Wilder's RMA of true range, not a rolling SMA. Seed it with the first
+  n true ranges' arithmetic mean; afterwards update with
+  `atr = (previous_atr * (n - 1) + true_range) / n`. Keep this recurrence even
+  when that ATR feeds another indicator's bands or stops. A deque average on
+  every bar silently changes the supplied formula.
 - SuperTrend follows TradingView exactly. With `atr` = Wilder's ATR (RMA of
   true range), `basic_upper = hl2 + factor * atr`,
   `basic_lower = hl2 - factor * atr`:
@@ -195,6 +253,11 @@ saved until a save succeeds.
   and emit the upper/down line. Pine's own reversed signs instead start at
   `1` down. Starting at `1` while defining positive as up is incorrect; later
   convergence does not repair the earlier plotted values.
+  Pine labels uptrend negative and downtrend positive: positive/upper turns
+  negative/lower only when close exceeds the finalized upper band; negative/lower
+  turns positive/upper only when close falls below the finalized lower band.
+  An inverted internal sign is valid only when initialization, transitions and
+  output selection all use that same convention.
 - Warm-up: a value built from other values (Hull's chained weighted averages,
   an ATR feeding a band) is `None` until every part exists. Check each part
   for `None` before doing math with it; a crash on the first bars breaks the

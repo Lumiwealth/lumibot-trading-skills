@@ -7,12 +7,30 @@ description: Use when callback, polling, fallback or queue paths can submit the 
 
 # One owner for each order operation
 
+This reference repairs an EXISTING connected multi-leg/hedge operation in place.
+For a new strategy with no equivalent owner, save and wire the complete
+`lumibot-strategy-building:references/order-quantity-example.py` module and its
+`StrategyOrderLedger` instead. Do not assemble a new pending-ID dictionary from
+the repair snippets below. Existing equivalent owners remain valid; preserve
+their trading policy and repair their actual connected callers.
+
 ## Repair mutable order identity as well as duplicate submission
 
-Retain the exact created Order object BEFORE dispatch. In LumiBot's Schwab
-adapter, `_submit_order` assigns the broker ID onto that SAME object's
-`identifier` before returning. The old UUID and the current broker ID can
-therefore differ with NO fill callback and NO change of operation.
+Retain the exact created Order object BEFORE dispatch for every native broker.
+Adapters may assign the broker ID onto that SAME object's `identifier` during
+or after submission. This applies to ordinary entries and exits, including
+prediction contracts; it is not limited to hedges or one adapter. The old UUID
+and current broker ID can differ with NO fill callback or change of operation.
+
+In a new strategy, one attempt retains its created/returned Order objects and
+known ID aliases. Refresh and callback attribution inspect those objects' current
+identifiers as well as retained aliases; a dictionary keyed only by the saved
+pre-submit scalar does not provide that ownership. Keep cumulative fill state
+on the ORIGINAL attempt so changing its broker ID cannot discard or double-count
+its executions. On ordinary restart, use the existing plain persisted attempt
+records, latest verified IDs and fill observations; preserve unknowns visibly.
+Use the complete existing ownership/accounting patterns below, and connect them
+to the saved code's actual submit, callback, refresh and cancellation methods.
 
 Do not use `saved_id != order.identifier` as a post-submit completion guard.
 That mistakes normal broker acceptance for completion and leaves the saved
@@ -47,7 +65,12 @@ business rules. When the user confines edits to the existing file, keep the
 controller and helpers in that file. Do not create another file. If this turn
 already created an unused helper, delete ONLY that newly created unused file
 with the ordinary file tool and current revision, then read back the file set.
-Keep every pre-existing file and one-time dependency initialization.
+Keep every pre-existing file and one-time dependency initialization. Add the
+new lock and bookkeeping to the EXISTING `initialize` with a narrow insertion.
+If changing the whole method is necessary, compare its original and final
+statements before saving: retain every helper construction, cache, deadline,
+scanner and scheduling setup outside the repaired accounting. A daily reset
+omits one-time dependencies and cannot serve as the initializer.
 
 Before changing an operation's state, trace each field through initialization,
 reset, submission, polling and fill callbacks. Preserve its value type at every
@@ -163,9 +186,7 @@ For ENTRY orders, perform this sequence inside the common owner:
 
 Wrapping entry submission to fix this publication race is not permission to
 change its signals, prices or cancellation branches. Keep unrelated original
-method bodies intact, and preserve every original helper construction, cache,
-deadline and scanner field in `initialize`. A daily reset omits one-time setup;
-it is not a replacement initialize body.
+method bodies intact, including their original one-time initialization.
 
 For HEDGE preparation, reserve ownership BEFORE appending shared queue legs,
 position reads or order creation. A losing claimant changes no queue state.
@@ -306,6 +327,7 @@ operation index, retaining the other original operations. Do not guess shifted
 line numbers or repeat the same ambiguous anchor. Alternatively read the current
 file and replace the complete corrected file. Repair syntax and then continue
 the behavioral change; a recoverable save error is not an authorization blocker.
+After a failed ambiguity retry, stop assembling another occurrence selector: read the current complete file, preserve its unrelated code, and use `replace_file` with that fresh edit handle for the complete connected repair. Save it and read back the resulting revision before ending; do not leave the authorized fix undone after repeated rejected patches.
 
 Before ending, correct any missing connection or newly introduced unused file.
 Unknown static readiness alone does not establish a missing code repair, and
@@ -448,11 +470,9 @@ Audit this submit/accept transition alongside queue and fallback transitions;
 locking only hedge methods cannot prevent a completed entry being reactivated.
 
 
-Integrate new state into the strategy's EXISTING `initialize`: initialize every
-new set, dictionary, pointer and instance lock before its first callback or
-iteration can use it. A daily reset hook is not initialization. Preserve the
-existing initialization and unrelated methods. Read back `initialize`, reset
-hooks and every new state's readers/writers together. A submission followed by
+Initialize every new set, dictionary, pointer and instance lock before its
+first callback or iteration can use it. Read back `initialize`, reset hooks
+and every new state's readers/writers together. A submission followed by
 an AttributeError can leave a real order accepted without its blocker; publish
 the complete initialized operation before submission, not after fallible setup.
 
@@ -469,7 +489,13 @@ lookup owner; read its CURRENT `identifier` for each refresh/cancel. Saving only
 `self.vars.order_id = order.identifier` before/after `submit_order` can still go
 stale when native asynchronous submission assigns the broker ID later. Keep
 historical IDs only as aliases for attribution, never as the current lookup
-source. A callback for the same object may supply its new ID before submit
+source. Poll the current canonical ID once; do not mark a healthy current
+attempt unknown merely because an earlier alias no longer resolves. Keep its
+cumulative-fill watermark under the immutable attempt, not a separate counter
+per alias. Seeing one filled transaction again under the assigned broker ID
+must not add the same exposure twice. These are distinct from a genuinely
+unresolved CURRENT lookup, which must remain visible and block new exposure.
+A callback for the same object may supply its new ID before submit
 returns; recognize that object/attempt instead of rejecting the callback as an
 unrelated ID. Conversely, do not overwrite completion or another operation
 observed by a callback while submit was in flight. Trace both cases.
@@ -486,3 +512,10 @@ Retain the exact original entry identity, legitimate remaining legs and the
 original order duration, quantities, expiry, pricing and basket policies.
 Completion of one operation must not prevent the next qualifying entry.
 A duplicate callback for a completed entry must not borrow a later entry's state.
+A history set of recognized entry IDs is not the current pending owner. Before
+any cancel, rejection, expiry or error callback clears pending fields or releases
+the entry blocker, match that callback's retained order/object or canonical alias
+to the exact currently pending entry. A late terminal event for an older entry
+may reconcile that entry's own ledger; it must leave a newer entry's blocker,
+identity and metadata intact. Apply this same identity check to every terminal
+branch, not only the fill callback.
