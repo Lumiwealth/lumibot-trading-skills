@@ -50,8 +50,8 @@ Live updates start when they turn on **Live** on that chart.
 
 ## Converting an indicator from another platform
 
-Load `references/indicator-conversion/README.md` for the full workflow, the language
-mapping and what the chart can and cannot draw.
+The `outside-trading-code` skill has the full workflow, the language files and what
+the chart can and cannot draw.
 
 Use this same private chat workflow for supplied indicator source. Preserve the
 source language's version, arithmetic, state, editable input names and labels,
